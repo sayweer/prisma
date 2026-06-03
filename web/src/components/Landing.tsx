@@ -1,16 +1,6 @@
-import { lazy, Suspense, Component, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import PrismMark from "./PrismMark";
 import { TREASURY_ID, USDC_SAC, contractUrl } from "../config";
-
-const Scene3D = lazy(() => import("./Scene3D"));
-
-// If WebGL / the 3D layer fails, fall back to the flat prism — never a blank hero.
-class Safe3D extends Component<{ children: ReactNode; fallback: ReactNode }, { err: boolean }> {
-  state = { err: false };
-  static getDerivedStateFromError() { return { err: true }; }
-  render() { return this.state.err ? this.props.fallback : this.props.children; }
-}
 
 const EASE = [0.2, 0.7, 0.3, 1] as const;
 const SPRING = { type: "spring", stiffness: 320, damping: 26 } as const;
@@ -69,11 +59,7 @@ export default function Landing({ onLaunch }: { onLaunch: () => void }) {
           </div>
 
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.2, ease: EASE, delay: T.prism }}>
-            <Safe3D fallback={<PrismMark variant="hero" />}>
-              <Suspense fallback={<PrismMark variant="hero" />}>
-                <Scene3D />
-              </Suspense>
-            </Safe3D>
+            <PrismMark variant="hero" />
           </motion.div>
         </div>
         <div />
