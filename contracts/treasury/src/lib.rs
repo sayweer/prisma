@@ -30,7 +30,7 @@ pub struct Config {
     pub agent: Address,
     /// SEP-41 / SAC token the treasury holds and spends (e.g. USDC).
     pub token: Address,
-    /// Max total spend allowed per rolling UTC day.
+    /// Max total spend allowed per UTC calendar day (resets at 00:00 UTC).
     pub daily_limit: i128,
     /// Max spend allowed in a single payment.
     pub per_task_limit: i128,
@@ -111,21 +111,23 @@ impl Treasury {
         }
         // ---------------------------------------------------------------------
 
-        // Execute: move the treasury's own balance out.
+        // ---- EFFECTS: record the spend BEFORE moving funds (checks-effects-interactions).
+        // per-day enforces the daily limit; per-task is the attribution ledger.
+        let task_spent = Self::task_spent(env.clone(), task_id);
+        env.storage()
+            .persistent()
+            .set(&DataKey::DaySpent(day), &(spent_today + amount));
+        env.storage()
+            .persistent()
+            .set(&DataKey::TaskSpent(task_id), &(task_spent + amount));
+
+        // ---- INTERACTION: move the treasury's own balance out last. If the transfer
+        // panics, the whole tx reverts and the accounting above is rolled back atomically.
         token::TokenClient::new(&env, &cfg.token).transfer(
             &env.current_contract_address(),
             &to,
             &amount,
         );
-
-        // Accounting: per-day (for the limit) and per-task (for attribution).
-        env.storage()
-            .persistent()
-            .set(&DataKey::DaySpent(day), &(spent_today + amount));
-        let task_spent = Self::task_spent(env.clone(), task_id);
-        env.storage()
-            .persistent()
-            .set(&DataKey::TaskSpent(task_id), &(task_spent + amount));
 
         env.events()
             .publish((symbol_short!("paid"), task_id), (to, amount));
