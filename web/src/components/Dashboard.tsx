@@ -55,6 +55,7 @@ const usd = (stroops: bigint) => Number(stroops) / 1e7;
 export default function Dashboard({ onHome }: { onHome: () => void }) {
   const [state, setState] = useState<PrismState | null>(null);
   const [spent, setSpent] = useState<Record<string, bigint>>({});
+  const baseline = useRef<Record<string, bigint> | null>(null); // on-chain task_spent at load
   const [status, setStatus] = useState<Record<string, Stat>>({});
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [reject, setReject] = useState<{ name: string; error: string } | null>(null);
@@ -68,7 +69,12 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
       const entries = await Promise.all(
         TASKS.map(async (t) => [t.taskId.toString(), await readTaskSpent(t.taskId)] as const),
       );
-      setSpent(Object.fromEntries(entries));
+      const map = Object.fromEntries(entries);
+      // TaskSpent is an all-time on-chain counter. Capture it once at load so the
+      // "auto-reconciled" panel shows THIS session's spend (the delta) — starting
+      // clean at 0 and matching the agent console's per-task amounts after a run.
+      if (!baseline.current) baseline.current = map;
+      setSpent(map);
       setErr(null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "RPC error");
@@ -131,6 +137,14 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
 
   const rejectedCount = ledger.filter((r) => !r.ok).length;
   const settledTasks = TASKS.filter((t) => status[t.taskId.toString()] === "ok").length;
+
+  // This session's per-task spend = current on-chain counter − the value at load.
+  const sessionSpent = (k: string): bigint | undefined => {
+    const now = spent[k];
+    if (now === undefined) return undefined;
+    const d = now - (baseline.current?.[k] ?? now);
+    return d > 0n ? d : 0n;
+  };
 
   return (
     <main className="wrap dash">
@@ -377,20 +391,23 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
       <motion.div className="glass card" style={{ marginTop: 22 }} {...up(0.38)}>
         <div className="card__head">
           <span className="card__title">Auto-reconciled spend</span>
-          <span className="card__sub">per-task · on-chain</span>
+          <span className="card__sub">per task · this session</span>
         </div>
-        {TASKS.map((t) => (
-          <div className="task" key={t.taskId.toString()}>
-            <span className="task__dot task__dot--ok" />
-            <div>
-              <div className="task__name">{t.name}</div>
-              <div className="task__vendor">task #{t.taskId.toString()}</div>
+        {TASKS.map((t) => {
+          const ss = sessionSpent(t.taskId.toString());
+          return (
+            <div className="task" key={t.taskId.toString()}>
+              <span className={`task__dot ${ss && ss > 0n ? "task__dot--ok" : ""}`} />
+              <div>
+                <div className="task__name">{t.name}</div>
+                <div className="task__vendor">task #{t.taskId.toString()}</div>
+              </div>
+              <div className="task__amt">
+                {ss !== undefined ? fmtUSDC(ss) : "—"} <small>USDC</small>
+              </div>
             </div>
-            <div className="task__amt">
-              {spent[t.taskId.toString()] !== undefined ? `${fmtUSDC(spent[t.taskId.toString()]!)}` : "—"} <small>USDC</small>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </motion.div>
 
       {/* FUNDING RAIL */}
