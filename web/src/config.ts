@@ -8,12 +8,25 @@ export const RPC_URL = "https://soroban-testnet.stellar.org";
 export const HORIZON_URL = "https://horizon-testnet.stellar.org";
 export const EXPLORER = "https://stellar.expert/explorer/testnet";
 
-export const TREASURY_ID = "CCTMOZ5NTQEQ5DDVRANOPEVMT3FDVZE25LPV2S4QQIDPZFWV6OXSH3IW";
+export const TREASURY_ID = "CAYWNXHANRY5GSJAZOR4YTKBKNOKTCITE52ZRKDKCAWLDTYWFFVFSPAZ";
 export const USDC_SAC = "CDCEHPK4OJXVRA4JV7N56GR5SRD5KGGZ55BDSHKODGR72Y4KGS6A3Y2W";
 
 export const ADMIN = "GDPKXL6CNHUXBV4PM54CPTRZNQRYVTIMO4YGBW3M2MNSCMQ7TTNINXP6";
 export const AGENT_PK = "GDAOXABLEOFZP2M4PRM7N6YKOKXWMPFOSLU35WL5ZQY4PQFHF3VCIDS6";
 export const AGENT_SECRET = "SC6F5K7IPNX6MMN2JAV766FU7WKWYQ3M34W3MOLCPXTU55HSKS2BT2XV";
+
+// ⚠️ SAFETY GUARD — the embedded AGENT_SECRET is a throwaway TESTNET key. A real signing
+// key must NEVER live in frontend code: it ships verbatim inside the JS bundle. If this
+// build is ever pointed at a non-testnet network, refuse to load — move signing to a
+// backend proxy or a wallet (e.g. Freighter) first.
+const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
+if (NETWORK_PASSPHRASE !== TESTNET_PASSPHRASE) {
+  throw new Error(
+    "Prism: the embedded AGENT_SECRET is testnet-only. On a non-testnet network, signing " +
+      "MUST move to a backend proxy or wallet (e.g. Freighter). Refusing to load a bundled secret.",
+  );
+}
+
 export const SERVICE = "GDOMW4C36BUBBFJW3V4L22LUICOUKFVTPGOYU6UMZZ6D3ENEOCH4QCRT";
 export const ATTACKER = "GAKSMBN6TRMF4M4PL3FJSDMQRD6XBQCJFLECLYTNAXZYMRIWXT6ADYTC";
 // Funding pool — one classic G-account whose zero-cost muxed sub-addresses
