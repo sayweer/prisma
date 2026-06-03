@@ -1,0 +1,86 @@
+// Prism — testnet configuration. All values are public testnet artifacts.
+// The agent secret is a TESTNET-only key with no real value; embedding it lets the
+// dashboard demonstrate an *autonomous* agent that signs its own payments (no wallet
+// popup) — the whole point is that the contract, not a human click, is the safety.
+
+export const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
+export const RPC_URL = "https://soroban-testnet.stellar.org";
+export const HORIZON_URL = "https://horizon-testnet.stellar.org";
+export const EXPLORER = "https://stellar.expert/explorer/testnet";
+
+export const TREASURY_ID = "CCTMOZ5NTQEQ5DDVRANOPEVMT3FDVZE25LPV2S4QQIDPZFWV6OXSH3IW";
+export const USDC_SAC = "CDCEHPK4OJXVRA4JV7N56GR5SRD5KGGZ55BDSHKODGR72Y4KGS6A3Y2W";
+
+export const ADMIN = "GDPKXL6CNHUXBV4PM54CPTRZNQRYVTIMO4YGBW3M2MNSCMQ7TTNINXP6";
+export const AGENT_PK = "GDAOXABLEOFZP2M4PRM7N6YKOKXWMPFOSLU35WL5ZQY4PQFHF3VCIDS6";
+export const AGENT_SECRET = "SC6F5K7IPNX6MMN2JAV766FU7WKWYQ3M34W3MOLCPXTU55HSKS2BT2XV";
+export const SERVICE = "GDOMW4C36BUBBFJW3V4L22LUICOUKFVTPGOYU6UMZZ6D3ENEOCH4QCRT";
+export const ATTACKER = "GAKSMBN6TRMF4M4PL3FJSDMQRD6XBQCJFLECLYTNAXZYMRIWXT6ADYTC";
+// Funding pool — one classic G-account whose zero-cost muxed sub-addresses
+// attribute incoming deposits to individual agent budgets (no memos, no new accounts).
+export const POOL_PK = "GD2NZKSMQW367OIFXRM4NP7RIW6YLDZLJ4C7253MDOKCFC4Q4IOO3427";
+
+// 8004 (trionlabs/stellar-8004) testnet registries — the agent trust layer.
+export const REG_IDENTITY = "CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH";
+export const REG_REPUTATION = "CBZEAGIEI3HXMDRLF44KLQJQQOH6LCYWWSGJVSYQYQO2HQ6DDGZ7HT55";
+export const AGENT_8004_ID = 1; // the agent is registered as #1 on testnet
+
+export const USDC_UNIT = 10_000_000n; // 1 USDC (7 decimals)
+
+export interface AgentTask {
+  taskId: bigint;
+  name: string;
+  vendor: string;
+  payee: string;
+  amount: bigint;
+}
+
+// The legitimate jobs the autonomous agent runs (all within policy limits).
+export const TASKS: AgentTask[] = [
+  { taskId: 101n, name: "GPT-4o summarization", vendor: "Inference API", payee: SERVICE, amount: 3n * USDC_UNIT },
+  { taskId: 102n, name: "Firecrawl web scrape", vendor: "Data API", payee: SERVICE, amount: 2n * USDC_UNIT },
+  { taskId: 103n, name: "Image generation x12", vendor: "Render API", payee: SERVICE, amount: 4n * USDC_UNIT },
+];
+
+// The prompt-injection / rogue scenario: agent told to send funds to an unapproved wallet.
+export const ROGUE: AgentTask = {
+  taskId: 666n,
+  name: "Drain to attacker wallet",
+  vendor: "Unapproved wallet (prompt-injection)",
+  payee: ATTACKER,
+  amount: 5n * USDC_UNIT,
+};
+
+export interface Budget {
+  id: bigint;
+  name: string;
+}
+
+// Each budget is a zero-cost muxed sub-address of the same pool account.
+export const BUDGETS: Budget[] = [
+  { id: 1n, name: "Research agent" },
+  { id: 2n, name: "Marketing agent" },
+  { id: 3n, name: "Ops agent" },
+];
+
+export function fmtUSDC(stroops: bigint, maxFrac = 2): string {
+  const neg = stroops < 0n;
+  const v = neg ? -stroops : stroops;
+  const whole = v / USDC_UNIT;
+  const frac = v % USDC_UNIT;
+  let fracStr = frac.toString().padStart(7, "0").slice(0, maxFrac).replace(/0+$/, "");
+  const wholeStr = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return (neg ? "-" : "") + wholeStr + (fracStr ? "." + fracStr : "");
+}
+
+export function shortAddr(a: string): string {
+  return a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a;
+}
+
+export function txUrl(hash: string): string {
+  return `${EXPLORER}/tx/${hash}`;
+}
+
+export function contractUrl(id: string): string {
+  return `${EXPLORER}/contract/${id}`;
+}
