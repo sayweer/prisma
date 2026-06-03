@@ -1,121 +1,125 @@
 // The signature: a white "payment beam" enters a glass prism and refracts into a
-// spectrum of attributed, policy-checked streams. Used big on the landing and
-// small in the dashboard topbar. Continuous motion is CSS; entrance is framer-motion
-// (handled by the parent).
+// spectrum of attributed, policy-checked streams. Used big on the landing (hero)
+// and small in the nav/footer (mark). Continuous motion lives in index.css
+// (.beam-anim); entrance animation is framer-motion, handled by the parent.
 
 interface Props {
   variant?: "hero" | "mark";
-  collapsed?: boolean; // rejected state: spectrum collapses to a single red line
+  collapsed?: boolean; // rejected state: spectrum collapses to a single crimson line
   size?: number;
 }
 
-const RAYS = [
-  { y: 150, c: "var(--sp-red)" },
-  { y: 171, c: "var(--sp-orange)" },
-  { y: 192, c: "var(--sp-yellow)" },
-  { y: 213, c: "var(--sp-green)" },
-  { y: 234, c: "var(--sp-cyan)" },
-  { y: 255, c: "var(--sp-blue)" },
-  { y: 276, c: "var(--sp-violet)" },
+// Hero spectrum fan: violet → indigo → cyan → green → lime (mockup hex).
+const FAN = [
+  { x2: 448, y2: 150, c: "#7C3AED" },
+  { x2: 450, y2: 186, c: "#4F46E5" },
+  { x2: 452, y2: 222, c: "#22D3EE" },
+  { x2: 450, y2: 258, c: "#00FF43" },
+  { x2: 448, y2: 294, c: "#C9FF23" },
 ];
-
-const EXIT = { x: 321, y: 200 };
 
 export default function PrismMark({ variant = "hero", collapsed = false, size }: Props) {
   if (variant === "mark") {
-    const s = size ?? 34;
+    const s = size ?? 30;
     return (
-      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" aria-hidden>
+      <svg
+        className="mark"
+        width={s}
+        height={s}
+        viewBox="0 0 32 32"
+        fill="none"
+        aria-hidden="true"
+      >
         <defs>
-          <linearGradient id="mk" x1="0" y1="0" x2="40" y2="40">
-            <stop offset="0" stopColor="var(--sp-cyan)" />
-            <stop offset="0.5" stopColor="var(--sp-blue)" />
-            <stop offset="1" stopColor="var(--sp-violet)" />
+          <linearGradient id="pm-mark-stroke" x1="3" y1="26" x2="29" y2="3">
+            <stop stopColor="#7C3AED" />
+            <stop offset="0.5" stopColor="#4F46E5" />
+            <stop offset="1" stopColor="#22D3EE" />
           </linearGradient>
         </defs>
-        <path d="M20 6 L33 31 L7 31 Z" stroke="url(#mk)" strokeWidth="1.8" strokeLinejoin="round" fill="oklch(82% 0.13 200 / 0.08)" />
-        <line x1="2" y1="20" x2="14" y2="20" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
-        <line x1="26" y1="22" x2="38" y2="14" stroke="var(--sp-red)" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
-        <line x1="26" y1="24" x2="38" y2="24" stroke="var(--sp-green)" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
-        <line x1="26" y1="26" x2="38" y2="32" stroke="var(--sp-violet)" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
+        <path
+          d="M16 3 L29 26 L3 26 Z"
+          stroke="url(#pm-mark-stroke)"
+          strokeWidth="1.6"
+          fill="rgba(124,58,237,0.10)"
+        />
+        <path d="M16 3 L16 26" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
       </svg>
     );
   }
 
   return (
-    <div className="pm-wrap" aria-hidden>
-      <style>{PM_CSS}</style>
-      <svg viewBox="0 0 560 380" width="100%" fill="none" className="pm-float">
+    <div className="prism-art" aria-hidden="true">
+      <svg
+        viewBox="0 0 460 460"
+        role="img"
+        aria-label="A white beam refracting through a prism into a spectrum fan"
+      >
         <defs>
-          <radialGradient id="pm-glow" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0" stopColor="oklch(82% 0.13 200 / 0.55)" />
-            <stop offset="1" stopColor="transparent" />
+          <linearGradient id="pm-hero-beam" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="1" stopColor="#ffffff" stopOpacity="0.95" />
+          </linearGradient>
+          <linearGradient id="pm-hero-tri" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#7C3AED" stopOpacity="0.45" />
+            <stop offset="0.5" stopColor="#4F46E5" stopOpacity="0.30" />
+            <stop offset="1" stopColor="#22D3EE" stopOpacity="0.40" />
+          </linearGradient>
+          <radialGradient id="pm-hero-halo" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stopColor="#7C3AED" stopOpacity="0.5" />
+            <stop offset="1" stopColor="#7C3AED" stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="pm-glass" x1="210" y1="100" x2="350" y2="275" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="oklch(100% 0 0 / 0.14)" />
-            <stop offset="1" stopColor="oklch(82% 0.13 200 / 0.06)" />
-          </linearGradient>
-          <linearGradient id="pm-edge" x1="0" y1="0" x2="560" y2="380" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="var(--sp-cyan)" />
-            <stop offset="1" stopColor="var(--sp-violet)" />
-          </linearGradient>
         </defs>
 
-        {/* bloom */}
-        <circle cx="300" cy="195" r="160" fill="url(#pm-glow)" className="pm-bloom" />
+        <circle cx="250" cy="230" r="180" fill="url(#pm-hero-halo)" />
 
-        {/* incoming white payment beam */}
-        <line x1="20" y1="190" x2="243" y2="190" stroke="white" strokeWidth="2.4" strokeLinecap="round" className="pm-beam" />
-        <circle r="3.5" fill="white" className="pm-spark">
-          <animateMotion dur="2.6s" repeatCount="indefinite" path="M20,190 L243,190" />
-        </circle>
+        {/* incoming white beam */}
+        <g className="beam-anim">
+          <rect x="0" y="222" width="190" height="3.5" fill="url(#pm-hero-beam)" />
+          <rect x="40" y="223" width="150" height="1.4" fill="#fff" opacity="0.9" />
+        </g>
 
-        {/* refracted spectrum */}
-        {RAYS.map((r, i) => (
-          <line
-            key={i}
-            x1={EXIT.x}
-            y1={EXIT.y}
-            x2={545}
-            y2={collapsed ? 205 : r.y}
-            stroke={collapsed ? "var(--danger)" : r.c}
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            className="pm-ray"
-            style={{ animationDelay: `${i * 0.13}s`, opacity: collapsed ? 0.5 : undefined }}
-          />
-        ))}
-
-        {/* internal segment */}
-        <line x1="243" y1="190" x2={EXIT.x} y2={EXIT.y} stroke="oklch(100% 0 0 / 0.7)" strokeWidth="2" strokeLinecap="round" />
-
-        {/* the prism */}
+        {/* prism triangle */}
         <path
-          d="M280 100 L350 270 L210 270 Z"
-          fill="url(#pm-glass)"
-          stroke="url(#pm-edge)"
-          strokeWidth="1.6"
-          strokeLinejoin="round"
-          className="pm-prism"
+          d="M205 110 L300 312 L150 312 Z"
+          fill="url(#pm-hero-tri)"
+          stroke="rgba(255,255,255,0.55)"
+          strokeWidth="1.4"
         />
-        <path d="M280 100 L210 270" stroke="oklch(100% 0 0 / 0.35)" strokeWidth="1" />
+        <path
+          d="M205 110 L300 312 L150 312 Z"
+          fill="none"
+          stroke="rgba(255,255,255,0.9)"
+          strokeWidth="0.6"
+          opacity="0.5"
+        />
+
+        {/* refracted spectrum fan (collapses to a single crimson line when rejected) */}
+        <g className="beam-anim" strokeWidth="3.2" strokeLinecap="round">
+          {FAN.map((r, i) => (
+            <line
+              key={i}
+              x1="232"
+              y1="224"
+              x2={collapsed ? 452 : r.x2}
+              y2={collapsed ? 224 : r.y2}
+              stroke={collapsed ? "#FF2D55" : r.c}
+              opacity={collapsed ? 0.55 : undefined}
+            />
+          ))}
+        </g>
+        {!collapsed && (
+          <g strokeWidth="1" strokeLinecap="round" opacity="0.45">
+            <line x1="232" y1="224" x2="448" y2="150" stroke="#fff" />
+            <line x1="232" y1="224" x2="452" y2="222" stroke="#fff" />
+            <line x1="232" y1="224" x2="448" y2="294" stroke="#fff" />
+          </g>
+        )}
+
+        {/* refraction point glow */}
+        <circle cx="232" cy="224" r="6" fill="#fff" />
+        <circle cx="232" cy="224" r="14" fill="#fff" opacity="0.18" />
       </svg>
     </div>
   );
 }
-
-const PM_CSS = `
-.pm-wrap { width: 100%; max-width: 560px; }
-.pm-float { animation: pm-float 9s ease-in-out infinite; transform-origin: center; }
-@keyframes pm-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-.pm-beam { stroke-dasharray: 14 10; animation: pm-flow 1.1s linear infinite; }
-@keyframes pm-flow { to { stroke-dashoffset: -24; } }
-.pm-ray { animation: pm-shimmer 3.2s ease-in-out infinite; filter: drop-shadow(0 0 6px currentColor); }
-@keyframes pm-shimmer { 0%,100%{opacity:0.45} 50%{opacity:1} }
-.pm-bloom { animation: pm-breathe 6s ease-in-out infinite; transform-origin: center; }
-@keyframes pm-breathe { 0%,100%{opacity:0.6; transform:scale(1)} 50%{opacity:1; transform:scale(1.08)} }
-.pm-prism { filter: drop-shadow(0 8px 30px oklch(82% 0.13 200 / 0.3)); }
-@media (prefers-reduced-motion: reduce) {
-  .pm-float, .pm-beam, .pm-ray, .pm-bloom { animation: none; }
-}
-`;

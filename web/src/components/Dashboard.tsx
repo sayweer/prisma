@@ -1,8 +1,8 @@
-/*  DASHBOARD — live treasury + autonomous agent console
+/*  DASHBOARD — live treasury + autonomous agent console (Spectral)
     Reads real testnet state. The agent signs its own payments; the contract is the
     only gate. The rogue button proves a prompt-injected payment is rejected on-chain.
 
-    entrance: stats stagger (120/200/280) → console (380) → ledger (480) → attrib (560)
+    entrance: head → stat bar → console/gauge → activity/map (tasteful stagger)
 */
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,8 +13,12 @@ import {
 } from "../lib/prism";
 import {
   TASKS, ROGUE, fmtUSDC, shortAddr, txUrl, contractUrl,
-  TREASURY_ID, USDC_SAC, AGENT_PK, REG_IDENTITY, AGENT_8004_ID, type AgentTask,
+  TREASURY_ID, USDC_SAC, AGENT_PK, REG_IDENTITY, AGENT_8004_ID,
+  SERVICE, ATTACKER, type AgentTask,
 } from "../config";
+
+// preserve the brand mark import (used as the avatar fallback glyph below)
+void PrismMark;
 
 const EASE = [0.2, 0.7, 0.3, 1] as const;
 const up = (delay: number) => ({
@@ -105,28 +109,52 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
   const balance = useCountUp(state ? usd(state.balance) : 0);
   const dailyPct = state ? Math.min(100, (Number(state.daySpent) / Number(state.dailyLimit)) * 100) : 0;
 
+  // derived gauge geometry
+  const fillDeg = (dailyPct / 100) * 360;
+  const ringColor = dailyPct < 70 ? "var(--lime)" : dailyPct < 90 ? "var(--amber)" : "var(--crimson)";
+  const remainColor = dailyPct < 70 ? "var(--lime)" : dailyPct < 90 ? "var(--amber)" : "#FF6E8A";
+  const ringBg = `conic-gradient(${ringColor} 0deg, ${ringColor} ${fillDeg}deg, rgba(255,255,255,0.06) ${fillDeg}deg 360deg)`;
+  const remaining = state ? state.dailyLimit - state.daySpent : 0n;
+  const healthLabel = dailyPct < 70 ? "healthy" : dailyPct < 90 ? "watch" : "near wall";
+  const healthBadge = dailyPct < 70 ? "badge--ok" : dailyPct < 90 ? "badge--warn" : "badge--rej";
+
+  const rejectedCount = ledger.filter((r) => !r.ok).length;
+  const settledTasks = TASKS.filter((t) => status[t.taskId.toString()] === "ok").length;
+
   return (
-    <div className="wrap dash">
-      {/* topbar */}
-      <div className="topbar">
-        <div className="brand" style={{ cursor: "pointer" }} onClick={onHome}>
-          <PrismMark variant="mark" size={32} />
-          <span className="brand__name">Prism</span>
-          <span className="dim mono" style={{ fontSize: 12, marginLeft: 4 }}>/ agent treasury</span>
+    <main className="wrap dash">
+      {/* HEAD */}
+      <div className="dash__head">
+        <div>
+          <div className="eyebrow sec-eyebrow">Treasury · agent #{AGENT_8004_ID}</div>
+          <h2 className="dash__title">An AI agent spent real money. <span className="spectral">Safely.</span></h2>
         </div>
-        <div className="topbar__r">
-          <span className="pill"><span className="dot dot--live" /> Testnet · live</span>
-          <a className="pill mono" href={contractUrl(TREASURY_ID)} target="_blank" rel="noreferrer">{shortAddr(TREASURY_ID)} ↗</a>
+        <div className="nav__r">
+          <span className="pill"><span className="dot dot--live" /> Stellar Testnet</span>
+          <a className="pill mono" href={contractUrl(TREASURY_ID)} target="_blank" rel="noreferrer">
+            Treasury {shortAddr(TREASURY_ID)} ↗
+          </a>
           <button className="btn" style={{ padding: "9px 16px" }} onClick={onHome}>↩ Home</button>
         </div>
       </div>
 
-      {err && <div className="rejbar" style={{ borderColor: "var(--line-2)" }}><span className="muted">Couldn’t reach testnet RPC: {err}. Retrying state on next action.</span></div>}
+      {/* RPC error notice */}
+      {err && (
+        <div className="rejbar" style={{ marginTop: 16 }}>
+          <div className="x">!</div>
+          <div>
+            <div><b>Couldn’t reach testnet RPC.</b></div>
+            <div className="mono dim" style={{ fontSize: 12.5, marginTop: 2 }}>{err} · retrying state on next action.</div>
+          </div>
+        </div>
+      )}
 
+      {/* rogue rejection banner */}
       <AnimatePresence>
         {reject && (
           <motion.div
             className="rejbar"
+            style={{ marginTop: 16 }}
             initial={{ opacity: 0, y: -10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10 }}
@@ -143,64 +171,78 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
         )}
       </AnimatePresence>
 
-      {/* stats */}
-      <div className="stat-grid">
-        <motion.div className="panel stat" {...up(0.12)}>
-          <div className="stat__label">TREASURY BALANCE · non-custodial</div>
-          <div className="stat__value">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}<span className="stat__u">USDC</span></div>
-          <div className="stat__sub mono">{shortAddr(USDC_SAC)} · funds stay in the owner’s contract</div>
-        </motion.div>
+      {/* STAT BAR */}
+      <motion.section className="glass dstat" {...up(0.06)}>
+        <div className="cell">
+          <div className="lbl">Treasury balance</div>
+          <div className="fig">
+            {balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>USDC</small>
+          </div>
+        </div>
+        <div className="cell">
+          <div className="lbl">Spent today</div>
+          <div className="fig">
+            {state ? fmtUSDC(state.daySpent) : "—"} <small>/ {state ? fmtUSDC(state.dailyLimit) : "—"} limit</small>
+          </div>
+        </div>
+        <div className="cell">
+          <div className="lbl">Per-task cap</div>
+          <div className="fig">
+            {state ? fmtUSDC(state.perTaskLimit) : "—"} <small>USDC</small>
+          </div>
+        </div>
+        <div className="cell">
+          <div className="lbl">On-chain events</div>
+          <div className="fig">
+            {ledger.length} <small>· {rejectedCount} rejected</small>
+          </div>
+        </div>
+      </motion.section>
 
-        <motion.div className="panel stat" {...up(0.2)}>
-          <div className="stat__label">SPENT TODAY</div>
-          <div className="stat__value">{state ? fmtUSDC(state.daySpent) : "—"}<span className="stat__u">/ {state ? fmtUSDC(state.dailyLimit) : "—"}</span></div>
-          <div className="bar"><div className="bar__fill" style={{ width: `${dailyPct}%` }} /></div>
-          <div className="stat__sub">daily limit enforced by the contract</div>
-        </motion.div>
-
-        <motion.div className="panel stat" {...up(0.28)}>
-          <div className="stat__label">PER-TASK LIMIT</div>
-          <div className="stat__value">{state ? fmtUSDC(state.perTaskLimit) : "—"}<span className="stat__u">USDC</span></div>
-          <div className="stat__sub">hard cap on any single payment</div>
-        </motion.div>
-      </div>
-
-      <div className="grid-2">
+      {/* ROW 1: agent console (wide) + daily-limit gauge */}
+      <section className="dgrid">
         {/* agent console */}
-        <motion.div className="panel console" {...up(0.38)}>
-          <div className="sec-h"><h2>Agent console</h2><span className="hint">autonomous · signs its own payments</span></div>
+        <motion.div className="glass glass--violet card" {...up(0.14)}>
+          <div className="card__head">
+            <span className="card__title">Agent console</span>
+            <span className="card__sub">{TASKS.length} tasks · {settledTasks} settled</span>
+          </div>
 
-          <div className="agentcard">
-            <PrismMark variant="mark" size={30} />
-            <div>
-              <div className="id">{shortAddr(AGENT_PK)}</div>
-              <div className="dim" style={{ fontSize: 12 }}>procurement agent</div>
+          <div className="agent__id">
+            <div className="agent__avatar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A0712" strokeWidth="2" aria-hidden>
+                <path d="M12 3 L20 7.5 V15.5 L12 20 L4 15.5 V7.5 Z" />
+              </svg>
             </div>
-            <a className="badge8004" href={contractUrl(REG_IDENTITY)} target="_blank" rel="noreferrer">
-              ERC-8004 · agent #{AGENT_8004_ID} verified
-            </a>
+            <div>
+              <div className="agent__addr">{shortAddr(AGENT_PK)}</div>
+              <div className="agent__meta">
+                <a className="badge badge--id" href={contractUrl(REG_IDENTITY)} target="_blank" rel="noreferrer">
+                  ERC-8004 · agent #{AGENT_8004_ID} verified
+                </a>
+                <span className="dim">autonomous signer</span>
+              </div>
+            </div>
           </div>
 
-          <div>
-            {TASKS.map((t) => {
-              const st = status[t.taskId.toString()] ?? "idle";
-              return (
-                <div className="task" key={t.taskId.toString()}>
-                  <div className="task__ico"><Glyph /></div>
-                  <div className="task__main">
-                    <div className="task__name">{t.name}</div>
-                    <div className="task__meta">{t.vendor} · {shortAddr(t.payee)}</div>
-                  </div>
-                  <div className="task__amt">{fmtUSDC(t.amount)}</div>
-                  <StatusPill st={st} />
+          {TASKS.map((t) => {
+            const st = status[t.taskId.toString()] ?? "idle";
+            return (
+              <div className="task" key={t.taskId.toString()}>
+                <span className={`task__dot ${dotClass(st)}`} />
+                <div>
+                  <div className="task__name">{t.name}</div>
+                  <div className="task__vendor">{t.vendor} · task #{t.taskId.toString()} · {shortAddr(t.payee)}</div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="task__amt">{fmtUSDC(t.amount)} <small>USDC</small></div>
+                <StatusBadge st={st} />
+              </div>
+            );
+          })}
 
-          <div className="actions">
+          <div className="card__actions">
             <button className="btn btn--primary" onClick={runAgent} disabled={busy}>
-              {busy ? "Agent working…" : "▶ Run agent tasks"}
+              {busy ? "Agent working…" : "Run agent tasks →"}
             </button>
             <button className="btn btn--danger" onClick={runRogue} disabled={busy}>
               ⚠ Simulate prompt-injection
@@ -208,62 +250,172 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
           </div>
         </motion.div>
 
-        {/* ledger */}
-        <motion.div className="panel ledger" {...up(0.48)}>
-          <div className="sec-h"><h2>On-chain activity</h2><span className="hint">{ledger.length} events</span></div>
-          {ledger.length === 0 && <div className="empty">No payments yet. Run the agent to watch it settle in real time.</div>}
-          {ledger.map((r) => (
-            <div className="lrow" key={r.key}>
-              <div className={`lrow__bar ${r.ok ? "lrow__bar--ok" : "lrow__bar--rej"}`} />
-              <div className="lrow__main">
-                <div className="lrow__t">{r.name}</div>
-                <div className="lrow__m">
-                  {r.ok
-                    ? <>settled → {shortAddr(r.payee)}{r.hash && <> · <a href={txUrl(r.hash)} target="_blank" rel="noreferrer">tx ↗</a></>}</>
-                    : <span style={{ color: "var(--danger)" }}>rejected · {r.error}</span>}
+        {/* daily-limit gauge */}
+        <motion.div className="glass card" {...up(0.2)}>
+          <div className="card__head">
+            <span className="card__title">Daily limit</span>
+            <span className="card__sub">UTC day</span>
+          </div>
+          <div className="gauge-wrap">
+            <div className="gauge">
+              <div className="gauge__ring" style={{ background: ringBg }} />
+              <div className="gauge__center">
+                <div className="gauge__pct spectral">{Math.round(dailyPct)}%</div>
+                <div className="gauge__cap">
+                  {state ? `${fmtUSDC(state.daySpent)} / ${fmtUSDC(state.dailyLimit)}` : "— / —"}
                 </div>
               </div>
-              <div className="lrow__r" style={{ color: r.ok ? "var(--ok)" : "var(--danger)" }}>
-                {r.ok ? "−" : "✕"}{fmtUSDC(r.amount)}
-              </div>
             </div>
+            <div className="gauge-meta">
+              <div className="row"><span className="k">Spent today</span><span className="mono">{state ? fmtUSDC(state.daySpent) : "—"}</span></div>
+              <div className="row"><span className="k">Remaining</span><span className="mono" style={{ color: remainColor }}>{state ? fmtUSDC(remaining) : "—"}</span></div>
+              <div className="row"><span className="k">Resets</span><span className="mono">00:00 UTC</span></div>
+              <div className="row"><span className="k">Headroom</span><span className={`badge ${healthBadge}`}>{healthLabel}</span></div>
+            </div>
+          </div>
+          <p className="card__sub" style={{ marginTop: 18, textTransform: "none", letterSpacing: 0, color: "var(--muted)", fontFamily: "var(--sans)", fontSize: 13 }}>
+            Ring shifts <span style={{ color: "var(--lime)" }}>lime</span> → <span style={{ color: "var(--amber)" }}>amber</span> → <span style={{ color: "#FF6E8A" }}>crimson</span> as the day fills. A runaway loop stops at the wall.
+          </p>
+        </motion.div>
+      </section>
+
+      {/* ROW 2: on-chain activity (wide) + agent→payee map */}
+      <section className="dgrid">
+        {/* on-chain activity */}
+        <motion.div className="glass card" {...up(0.26)}>
+          <div className="card__head">
+            <span className="card__title">On-chain activity</span>
+            <span className="card__sub">testnet · latest</span>
+          </div>
+
+          {ledger.length === 0 && (
+            <div className="empty">No payments yet. Run the agent to watch it settle in real time.</div>
+          )}
+
+          {ledger.map((r) => (
+            r.ok ? (
+              <div className="act" key={r.key}>
+                <div className="act__ico act__ico--ok">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CFFB4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 13l4 4 10-11" /></svg>
+                </div>
+                <div className="act__body">
+                  <div className="act__title">{r.name}</div>
+                  <div className="act__meta">
+                    <span>settled → {shortAddr(r.payee)}</span>
+                    {r.hash && <a className="glow-link" href={txUrl(r.hash)} target="_blank" rel="noreferrer">{shortAddr(r.hash)} ↗</a>}
+                  </div>
+                </div>
+                <div className="act__r">
+                  <div className="act__amt act__amt--ok">−{fmtUSDC(r.amount)} USDC</div>
+                  <span className="badge badge--ok">✓ settled</span>
+                </div>
+              </div>
+            ) : (
+              <div className="act act--rej" key={r.key}>
+                <div className="act__ico act__ico--rej">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6E8A" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+                </div>
+                <div className="act__body">
+                  <div className="act__title">{r.name}</div>
+                  <div className="act__meta">
+                    <span style={{ color: "#FF8AA0" }}>✕ {r.error ?? "rejected"}</span>
+                    <span>· funds never moved · {shortAddr(r.payee)}</span>
+                  </div>
+                </div>
+                <div className="act__r">
+                  <div className="act__amt act__amt--rej">0.00 USDC</div>
+                  <span className="badge badge--rej">reverted</span>
+                </div>
+              </div>
+            )
           ))}
         </motion.div>
-      </div>
 
-      {/* attribution */}
-      <motion.div className="panel console" style={{ marginTop: 16 }} {...up(0.58)}>
-        <div className="sec-h"><h2>Auto-reconciled spend</h2><span className="hint">per-task accounting, read straight from the contract</span></div>
+        {/* agent → payee minimap */}
+        <motion.div className="glass card" {...up(0.32)}>
+          <div className="card__head">
+            <span className="card__title">Agent → payee map</span>
+            <span className="card__sub">whitelist routing</span>
+          </div>
+          <div className="minimap">
+            <svg viewBox="0 0 300 230" aria-hidden>
+              <defs>
+                <linearGradient id="mmw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#7C3AED" /><stop offset="1" stopColor="#22D3EE" /></linearGradient>
+              </defs>
+              <g fill="none" strokeWidth="1.5">
+                <path d="M150 115 L255 50" stroke="url(#mmw)" opacity="0.8" />
+                <path d="M150 115 L262 150" stroke="url(#mmw)" opacity="0.8" />
+                <path d="M150 115 L60 185" stroke="#FF2D55" strokeDasharray="4 5" opacity="0.7" />
+              </g>
+            </svg>
+            <div className="mm-center">
+              <div className="t">Treasury</div>
+              <div className="a">{shortAddr(TREASURY_ID)}</div>
+            </div>
+            <div className="mm-sat mm-sat--ok" style={{ top: 24, right: 6 }}>✓ Service · {shortAddr(SERVICE)}</div>
+            <div className="mm-sat mm-sat--ok" style={{ bottom: 54, right: 0 }}>✓ whitelisted payee</div>
+            <div className="mm-sat mm-sat--rej" style={{ bottom: 18, left: 0 }}>✕ Attacker · {shortAddr(ATTACKER)}</div>
+          </div>
+          <p className="card__sub" style={{ marginTop: 6, textTransform: "none", letterSpacing: 0, color: "var(--muted)", fontFamily: "var(--sans)", fontSize: 13 }}>
+            Only whitelisted addresses can ever receive funds. The attacker route is rejected on-chain.
+          </p>
+        </motion.div>
+      </section>
+
+      {/* per-task auto-reconciled spend (read straight from the contract) */}
+      <motion.div className="glass card" style={{ marginTop: 22 }} {...up(0.38)}>
+        <div className="card__head">
+          <span className="card__title">Auto-reconciled spend</span>
+          <span className="card__sub">per-task · on-chain</span>
+        </div>
         {TASKS.map((t) => (
-          <div className="payee-row" key={t.taskId.toString()}>
-            <span className="mono dim">task #{t.taskId.toString()}</span>
-            <span>{t.name}</span>
-            <span className="muxed">{spent[t.taskId.toString()] !== undefined ? `${fmtUSDC(spent[t.taskId.toString()]!)} USDC` : "—"}</span>
+          <div className="task" key={t.taskId.toString()}>
+            <span className="task__dot task__dot--ok" />
+            <div>
+              <div className="task__name">{t.name}</div>
+              <div className="task__vendor">task #{t.taskId.toString()}</div>
+            </div>
+            <div className="task__amt">
+              {spent[t.taskId.toString()] !== undefined ? `${fmtUSDC(spent[t.taskId.toString()]!)}` : "—"} <small>USDC</small>
+            </div>
           </div>
         ))}
       </motion.div>
 
+      {/* FUNDING RAIL */}
       <FundingRail />
-    </div>
+
+      {/* FOOTER */}
+      <footer className="footer">
+        <div className="brand">
+          <svg className="mark" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden>
+            <path d="M16 3 L29 26 L3 26 Z" stroke="url(#fnav)" strokeWidth="1.6" fill="rgba(124,58,237,0.10)" />
+            <defs><linearGradient id="fnav" x1="3" y1="26" x2="29" y2="3"><stop stopColor="#7C3AED" /><stop offset="0.5" stopColor="#4F46E5" /><stop offset="1" stopColor="#22D3EE" /></linearGradient></defs>
+          </svg>
+          Prism <span className="dim" style={{ fontFamily: "var(--sans)", fontWeight: 400, fontSize: 13, marginLeft: 6 }}>Build On Stellar · IBW 2026</span>
+        </div>
+        <div className="dim mono" style={{ fontSize: 12.5 }}>
+          Non-custodial · {shortAddr(USDC_SAC)} · <a className="glow-link" href="https://github.com/Bekirerdem" target="_blank" rel="noreferrer">GitHub ↗</a>
+        </div>
+      </footer>
+    </main>
   );
 }
 
-function StatusPill({ st }: { st: Stat }) {
+function dotClass(st: Stat): string {
+  return st === "ok" ? "task__dot--ok"
+    : st === "running" ? "task__dot--run"
+    : st === "rej" ? "task__dot--rej"
+    : "";
+}
+
+function StatusBadge({ st }: { st: Stat }) {
   const map: Record<Stat, { cls: string; label: string }> = {
-    idle: { cls: "st--idle", label: "queued" },
-    running: { cls: "st--run", label: "signing…" },
-    ok: { cls: "st--ok", label: "settled" },
-    rej: { cls: "st--rej", label: "rejected" },
+    idle: { cls: "badge--id", label: "queued" },
+    running: { cls: "badge--warn", label: "signing…" },
+    ok: { cls: "badge--ok", label: "✓ settled" },
+    rej: { cls: "badge--rej", label: "✕ rejected" },
   };
   const m = map[st];
-  return <span className={`task__st ${m.cls}`}>{m.label}</span>;
-}
-
-function Glyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2.5" y="2.5" width="11" height="11" rx="3" stroke="var(--accent)" strokeWidth="1.3" />
-      <circle cx="8" cy="8" r="2" fill="var(--accent)" />
-    </svg>
-  );
+  return <span className={`badge ${m.cls}`} style={{ marginLeft: 12 }}>{m.label}</span>;
 }
