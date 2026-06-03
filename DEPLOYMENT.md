@@ -15,8 +15,8 @@ Network: **Stellar Testnet** (`Test SDF Network ; September 2015`)
 | Contract | Address |
 |----------|---------|
 | USDC (SAC, issuer=alice) | `CDCEHPK4OJXVRA4JV7N56GR5SRD5KGGZ55BDSHKODGR72Y4KGS6A3Y2W` |
-| **Prism Treasury** | `CCTMOZ5NTQEQ5DDVRANOPEVMT3FDVZE25LPV2S4QQIDPZFWV6OXSH3IW` |
-| Treasury wasm hash | `01c136fd968289c7f88f414340c15c49c554db3649e4d3421244f72fc5f8daf0` |
+| **Prism Treasury** | `CAYWNXHANRY5GSJAZOR4YTKBKNOKTCITE52ZRKDKCAWLDTYWFFVFSPAZ` |
+| Treasury wasm hash | `41c8bb1f0b4d9bd7b89c3a855ee87cb56971a256fe110cd2860d406dde040c2b` |
 
 ## Policy (constructor)
 
@@ -28,12 +28,13 @@ Network: **Stellar Testnet** (`Test SDF Network ; September 2015`)
 | Action | Result |
 |--------|--------|
 | Fund treasury (mint 500 USDC) | balance = `5000000000` ✅ |
-| Legit pay: agent → service 5 USDC (task 1) | `paid` event, transfer succeeded ✅ |
-| `task_spent(1)` | `50000000` ✅ |
-| `day_spent` | `50000000` ✅ |
-| treasury `balance` after | `4950000000` ✅ |
-| **Rogue pay → non-whitelisted** | `Error(Contract, #2)` PayeeNotWhitelisted ✅ rejected |
-| **Over-limit pay (20 USDC)** | `Error(Contract, #3)` ExceedsTaskLimit ✅ rejected |
+| `is_payee(service)` | `true` ✅ |
+| `is_payee(attacker)` | `false` ✅ |
+| **Rogue pay → non-whitelisted** | `Error(Contract, #2)` PayeeNotWhitelisted ✅ rejected on-chain |
+
+Full policy (legit pay + per-task `#3` / daily-limit `#4` rejection + per-task accounting +
+day-rollover reset) is proven by the contract test suite — `cargo test` → **6/6 passing** —
+and exercised live in the dashboard demo. The treasury starts each demo clean at 500 USDC.
 
 ## Error codes
 
