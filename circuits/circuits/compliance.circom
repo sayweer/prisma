@@ -3,6 +3,38 @@ pragma circom 2.1.6;
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/bitify.circom";
 include "circomlib/circuits/poseidon.circom";
+include "circomlib/circuits/mux1.circom";
+
+// Poseidon Merkle inclusion (Tornado-style): proves `leaf` sits at the position
+// given by pathIndices under `root`, using the supplied sibling path.
+template MerkleInclusion(levels) {
+    signal input leaf;
+    signal input root;
+    signal input pathElements[levels];
+    signal input pathIndices[levels];
+
+    component hashers[levels];
+    component mux[levels];
+    signal hashes[levels + 1];
+    hashes[0] <== leaf;
+
+    for (var i = 0; i < levels; i++) {
+        pathIndices[i] * (1 - pathIndices[i]) === 0; // selector is boolean
+
+        mux[i] = MultiMux1(2);
+        mux[i].c[0][0] <== hashes[i];
+        mux[i].c[0][1] <== pathElements[i];
+        mux[i].c[1][0] <== pathElements[i];
+        mux[i].c[1][1] <== hashes[i];
+        mux[i].s <== pathIndices[i];
+
+        hashers[i] = Poseidon(2);
+        hashers[i].inputs[0] <== mux[i].out[0];
+        hashers[i].inputs[1] <== mux[i].out[1];
+        hashes[i + 1] <== hashers[i].out;
+    }
+    root === hashes[levels];
+}
 
 // Prism Confidential — compliance predicate over a fixed batch of N payments.
 //
@@ -33,6 +65,8 @@ template Compliance(N, levels, nBits) {
     component commit[N];
     component rangeBits[N];
     component leCmp[N];
+    component leafHash[N];
+    component merkle[N];
     signal sumTerms[N + 1];
     sumTerms[0] <== 0;
 
@@ -53,6 +87,17 @@ template Compliance(N, levels, nBits) {
         leCmp[i].out === 1;
 
         sumTerms[i + 1] <== sumTerms[i] + amount[i];
+
+        // whitelist membership: Poseidon(payee_i) must be a leaf under whitelistRoot.
+        leafHash[i] = Poseidon(1);
+        leafHash[i].inputs[0] <== payee[i];
+        merkle[i] = MerkleInclusion(levels);
+        merkle[i].leaf <== leafHash[i].out;
+        merkle[i].root <== whitelistRoot;
+        for (var j = 0; j < levels; j++) {
+            merkle[i].pathElements[j] <== pathElements[i][j];
+            merkle[i].pathIndices[j] <== pathIndices[i][j];
+        }
     }
 
     // daily limit: bound the total, then compare. N<=16 => total < 2^(nBits+4).
