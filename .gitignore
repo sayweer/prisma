@@ -12,3 +12,10 @@ dist
 *.log
 .env
 .env.local
+
+# ZK build artifacts (circuits/contracts)
+build/
+*.zkey
+*.ptau
+*.wtns
+circuits/build/
