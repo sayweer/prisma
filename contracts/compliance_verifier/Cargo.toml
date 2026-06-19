@@ -1,0 +1,15 @@
+[package]
+name = "compliance_verifier"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = "26"
+
+[dev-dependencies]
+soroban-sdk = { version = "26", features = ["testutils"] }
