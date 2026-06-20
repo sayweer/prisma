@@ -8,7 +8,8 @@
 //! accounted per task so each agent payment is automatically attributable.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
+    contract, contractclient, contracterror, contractimpl, contracttype, symbol_short, token,
+    Address, Env,
 };
 
 #[contracterror]
@@ -19,6 +20,7 @@ pub enum Error {
     PayeeNotWhitelisted = 2,
     ExceedsTaskLimit = 3,
     ExceedsDailyLimit = 4,
+    BelowReputationThreshold = 5,
 }
 
 #[contracttype]
@@ -43,6 +45,17 @@ pub enum DataKey {
     Payee(Address),
     DaySpent(u64),
     TaskSpent(u64),
+    RepRegistry,
+    MinReputation,
+}
+
+/// Minimal reputation-oracle interface PRISM reads to authorize a *non-whitelisted*
+/// payee by its earned trust. Targets an ERC-8004-style reputation registry
+/// (e.g. stellar-8004). `reputation_of` returns an opaque, monotonic score where
+/// a higher value means more trustworthy.
+#[contractclient(name = "ReputationClient")]
+pub trait ReputationOracle {
+    fn reputation_of(env: Env, agent: Address) -> i128;
 }
 
 const SECONDS_PER_DAY: u64 = 86_400;
@@ -85,6 +98,30 @@ impl Treasury {
         env.storage().persistent().remove(&DataKey::Payee(payee));
     }
 
+    /// Set (or update) the reputation gate. Admin-only. With `min_reputation > 0`,
+    /// a payee that is NOT on the whitelist can still be paid when its score from
+    /// `registry` is >= `min_reputation` — turning the static allowlist into an
+    /// earned-trust gate. Set `min_reputation = 0` to disable (whitelist-only).
+    pub fn set_reputation_policy(env: Env, registry: Address, min_reputation: i128) {
+        let cfg = Self::cfg(&env);
+        cfg.admin.require_auth();
+        env.storage().instance().set(&DataKey::RepRegistry, &registry);
+        env.storage()
+            .instance()
+            .set(&DataKey::MinReputation, &min_reputation);
+    }
+
+    /// The active reputation gate, if any: `(registry, min_reputation)`.
+    pub fn get_reputation_policy(env: Env) -> Option<(Address, i128)> {
+        let registry: Option<Address> = env.storage().instance().get(&DataKey::RepRegistry);
+        let min = env
+            .storage()
+            .instance()
+            .get(&DataKey::MinReputation)
+            .unwrap_or(0_i128);
+        registry.map(|r| (r, min))
+    }
+
     /// The agent asks the treasury to pay `amount` to `to` for `task_id`.
     /// The contract enforces the policy and rejects any violation on-chain.
     pub fn pay(env: Env, task_id: u64, to: Address, amount: i128) -> Result<(), Error> {
@@ -96,11 +133,9 @@ impl Treasury {
         }
 
         // ---- POLICY GATE ----------------------------------------------------
-        // (ERC-8004 trust check slots in here: require `to` to be a registered
-        //  agent with reputation >= threshold before the whitelist check.)
-        if !Self::is_payee(env.clone(), to.clone()) {
-            return Err(Error::PayeeNotWhitelisted);
-        }
+        // Payee must be on the manual whitelist OR (opt-in) earn a high-enough
+        // reputation score from the configured ERC-8004 registry. Default: whitelist only.
+        Self::payee_allowed(&env, &to)?;
         if amount > cfg.per_task_limit {
             return Err(Error::ExceedsTaskLimit);
         }
@@ -169,6 +204,30 @@ impl Treasury {
 impl Treasury {
     fn cfg(env: &Env) -> Config {
         env.storage().instance().get(&DataKey::Config).unwrap()
+    }
+
+    /// Whitelist OR earned-reputation gate. See `set_reputation_policy`.
+    fn payee_allowed(env: &Env, to: &Address) -> Result<(), Error> {
+        if Self::is_payee(env.clone(), to.clone()) {
+            return Ok(());
+        }
+        let registry: Option<Address> = env.storage().instance().get(&DataKey::RepRegistry);
+        let min: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::MinReputation)
+            .unwrap_or(0);
+        match registry {
+            Some(reg) if min > 0 => {
+                let score = ReputationClient::new(env, &reg).reputation_of(to);
+                if score >= min {
+                    Ok(())
+                } else {
+                    Err(Error::BelowReputationThreshold)
+                }
+            }
+            _ => Err(Error::PayeeNotWhitelisted),
+        }
     }
 
     fn day_spent_on(env: &Env, day: u64) -> i128 {

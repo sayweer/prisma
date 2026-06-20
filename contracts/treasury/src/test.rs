@@ -2,6 +2,7 @@
 
 use super::*;
 use soroban_sdk::{
+    contract, contractimpl,
     testutils::{Address as _, Ledger},
     token::{StellarAssetClient, TokenClient},
     Address, Env,
@@ -192,4 +193,80 @@ fn per_task_limit_boundary() {
         client.try_pay(&2_u64, &payee, &101_i128),
         Err(Ok(Error::ExceedsTaskLimit))
     );
+}
+
+// --- reputation gate (ERC-8004-style) ------------------------------------------
+
+/// A minimal mock of an ERC-8004 reputation registry: stores a score per agent.
+#[contract]
+pub struct MockReputation;
+
+#[contractimpl]
+impl MockReputation {
+    pub fn set_score(env: Env, agent: Address, score: i128) {
+        env.storage().persistent().set(&agent, &score);
+    }
+    pub fn reputation_of(env: Env, agent: Address) -> i128 {
+        env.storage().persistent().get(&agent).unwrap_or(0)
+    }
+}
+
+/// A non-whitelisted payee can be paid once it clears the reputation threshold.
+#[test]
+fn reputation_gated_payee_allowed() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (_payee, client, token) = setup(&env, 1000_i128, 100_i128);
+
+    let rep_id = env.register(MockReputation, ());
+    let rep = MockReputationClient::new(&env, &rep_id);
+
+    // a brand-new agent, NOT on the whitelist, but reputable
+    let reputable = Address::generate(&env);
+    rep.set_score(&reputable, &80_i128);
+
+    // turn on the gate: min reputation = 50
+    client.set_reputation_policy(&rep_id, &50_i128);
+    assert_eq!(client.get_reputation_policy(), Some((rep_id.clone(), 50_i128)));
+
+    // pays even though `reputable` was never whitelisted
+    client.pay(&1_u64, &reputable, &40_i128);
+    assert_eq!(token.balance(&reputable), 40);
+}
+
+/// Below the reputation threshold (and not whitelisted) → rejected.
+#[test]
+fn below_reputation_is_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (_payee, client, _token) = setup(&env, 1000_i128, 100_i128);
+
+    let rep_id = env.register(MockReputation, ());
+    let rep = MockReputationClient::new(&env, &rep_id);
+
+    let shady = Address::generate(&env);
+    rep.set_score(&shady, &10_i128);
+
+    client.set_reputation_policy(&rep_id, &50_i128);
+
+    assert_eq!(
+        client.try_pay(&1_u64, &shady, &10_i128),
+        Err(Ok(Error::BelowReputationThreshold))
+    );
+}
+
+/// A whitelisted payee is always allowed — whitelist OR reputation, either suffices.
+#[test]
+fn whitelisted_payee_bypasses_reputation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (payee, client, token) = setup(&env, 1000_i128, 100_i128);
+
+    // gate on, but `payee` has score 0 in the mock — the whitelist still lets it through
+    let rep_id = env.register(MockReputation, ());
+    client.set_reputation_policy(&rep_id, &50_i128);
+
+    client.add_payee(&payee);
+    client.pay(&1_u64, &payee, &25_i128);
+    assert_eq!(token.balance(&payee), 25);
 }
