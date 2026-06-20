@@ -382,3 +382,12 @@ button{ font-family:inherit; }
   .bg__aurora, .bg__fan, .dot--live, .badge--rej, .beam-anim{ animation:none !important; }
   *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
 }
+
+/* ===================== Perf: static background =====================
+   The drifting, 90px-blurred, screen-blended aurora forced every backdrop-filter
+   card to recomposite the moving blur EVERY FRAME (severe jank on most GPUs).
+   Keep the aurora's look but make it static + trim the blur, so the GPU rasterizes
+   the background once instead of every frame. */
+.bg__aurora, .bg__fan { animation: none !important; }
+.bg__aurora { filter: blur(64px); }
+.bg__fan { filter: blur(30px); }
