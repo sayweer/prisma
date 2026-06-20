@@ -270,3 +270,99 @@ fn whitelisted_payee_bypasses_reputation() {
     client.pay(&1_u64, &payee, &25_i128);
     assert_eq!(token.balance(&payee), 25);
 }
+
+// --- escrow: outcome-bound payments --------------------------------------------
+
+/// Lock funds for a payee, then release on approval: payee paid, spend accounted,
+/// lock cleared, funds only move at release.
+#[test]
+fn escrow_lock_and_release() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (payee, client, token) = setup(&env, 1000_i128, 100_i128);
+    client.add_payee(&payee);
+
+    let id = client.create_escrow(&7_u64, &payee, &60_i128, &SECONDS_PER_DAY);
+    assert_eq!(client.locked(), 60);
+    assert_eq!(client.balance(), 500); // reserved, not yet moved
+    assert_eq!(token.balance(&payee), 0);
+
+    client.release_escrow(&id);
+    assert_eq!(token.balance(&payee), 60);
+    assert_eq!(client.day_spent(), 60);
+    assert_eq!(client.task_spent(&7), 60);
+    assert_eq!(client.locked(), 0);
+    assert!(client.get_escrow(&id).is_none());
+}
+
+/// After the deadline, the agent reclaims an undelivered escrow — funds unlock,
+/// nothing is paid out.
+#[test]
+fn escrow_refund_after_deadline() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (payee, client, token) = setup(&env, 1000_i128, 100_i128);
+    client.add_payee(&payee);
+
+    let id = client.create_escrow(&1_u64, &payee, &80_i128, &SECONDS_PER_DAY);
+    assert_eq!(client.locked(), 80);
+
+    env.ledger().with_mut(|li| li.timestamp = SECONDS_PER_DAY); // reach the deadline
+    client.refund_escrow(&id);
+
+    assert_eq!(client.locked(), 0);
+    assert_eq!(token.balance(&payee), 0);
+    assert_eq!(client.balance(), 500); // funds stayed in the treasury
+    assert!(client.get_escrow(&id).is_none());
+}
+
+/// Refunding before the deadline is rejected.
+#[test]
+fn escrow_refund_before_deadline_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (payee, client, _token) = setup(&env, 1000_i128, 100_i128);
+    client.add_payee(&payee);
+
+    let id = client.create_escrow(&1_u64, &payee, &80_i128, &SECONDS_PER_DAY);
+    assert_eq!(
+        client.try_refund_escrow(&id),
+        Err(Ok(Error::DeadlineNotReached))
+    );
+}
+
+/// Escrow creation honors the same payee gate + per-task limit as a direct payment.
+#[test]
+fn escrow_create_enforces_per_task_and_payee() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (payee, client, _token) = setup(&env, 1000_i128, 100_i128);
+
+    // not whitelisted (no reputation policy) → rejected
+    assert_eq!(
+        client.try_create_escrow(&1_u64, &payee, &50_i128, &SECONDS_PER_DAY),
+        Err(Ok(Error::PayeeNotWhitelisted))
+    );
+
+    client.add_payee(&payee);
+    // over the per-task limit (100) → rejected
+    assert_eq!(
+        client.try_create_escrow(&2_u64, &payee, &101_i128, &SECONDS_PER_DAY),
+        Err(Ok(Error::ExceedsTaskLimit))
+    );
+}
+
+/// Cannot lock more than the free balance (treasury balance minus already-locked).
+#[test]
+fn escrow_insufficient_free_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (payee, client, _token) = setup(&env, 1000_i128, 500_i128);
+    client.add_payee(&payee);
+
+    client.create_escrow(&1_u64, &payee, &400_i128, &SECONDS_PER_DAY); // locks 400 → free 100
+    assert_eq!(
+        client.try_create_escrow(&2_u64, &payee, &200_i128, &SECONDS_PER_DAY),
+        Err(Ok(Error::InsufficientFreeBalance))
+    );
+}

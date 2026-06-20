@@ -21,6 +21,9 @@ pub enum Error {
     ExceedsTaskLimit = 3,
     ExceedsDailyLimit = 4,
     BelowReputationThreshold = 5,
+    InsufficientFreeBalance = 6,
+    EscrowNotFound = 7,
+    DeadlineNotReached = 8,
 }
 
 #[contracttype]
@@ -38,6 +41,18 @@ pub struct Config {
     pub per_task_limit: i128,
 }
 
+/// An outcome-bound payment: `amount` is reserved (locked) in the treasury for
+/// `payee` against `task_id`, releasable on approval or refundable after `deadline`
+/// (UNIX seconds). The funds never leave until release — refund just unlocks them.
+#[contracttype]
+#[derive(Clone)]
+pub struct Escrow {
+    pub payee: Address,
+    pub amount: i128,
+    pub task_id: u64,
+    pub deadline: u64,
+}
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
@@ -47,6 +62,9 @@ pub enum DataKey {
     TaskSpent(u64),
     RepRegistry,
     MinReputation,
+    EscrowEntry(u64),
+    NextEscrowId,
+    Locked,
 }
 
 /// Minimal reputation-oracle interface PRISM reads to authorize a *non-whitelisted*
@@ -197,6 +215,132 @@ impl Treasury {
     pub fn balance(env: Env) -> i128 {
         let cfg = Self::cfg(&env);
         token::TokenClient::new(&env, &cfg.token).balance(&env.current_contract_address())
+    }
+
+    // ---- escrow: outcome-bound payments ------------------------------------
+
+    /// Agent reserves `amount` for `payee` against a future-delivered task. The funds
+    /// stay in the treasury (locked, not transferred) until released on approval or
+    /// refunded after `deadline`. Subject to the same payee gate + per-task limit as
+    /// a direct payment; the daily limit is enforced later, at release.
+    pub fn create_escrow(
+        env: Env,
+        task_id: u64,
+        payee: Address,
+        amount: i128,
+        deadline: u64,
+    ) -> Result<u64, Error> {
+        let cfg = Self::cfg(&env);
+        cfg.agent.require_auth();
+
+        if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+        Self::payee_allowed(&env, &payee)?;
+        if amount > cfg.per_task_limit {
+            return Err(Error::ExceedsTaskLimit);
+        }
+        let locked = Self::locked(env.clone());
+        if Self::balance(env.clone()) - locked < amount {
+            return Err(Error::InsufficientFreeBalance);
+        }
+
+        let id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextEscrowId)
+            .unwrap_or(0);
+        let escrow = Escrow {
+            payee: payee.clone(),
+            amount,
+            task_id,
+            deadline,
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::EscrowEntry(id), &escrow);
+        env.storage().instance().set(&DataKey::NextEscrowId, &(id + 1));
+        env.storage().instance().set(&DataKey::Locked, &(locked + amount));
+
+        env.events()
+            .publish((symbol_short!("escrowed"), id), (payee, amount));
+        Ok(id)
+    }
+
+    /// Admin (the owner / hirer) approves delivery → release the locked funds to the
+    /// payee. The daily limit is enforced here, at the real moment of outflow, and
+    /// the spend is accounted per task exactly like a direct `pay`.
+    pub fn release_escrow(env: Env, id: u64) -> Result<(), Error> {
+        let cfg = Self::cfg(&env);
+        cfg.admin.require_auth();
+        let escrow: Escrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::EscrowEntry(id))
+            .ok_or(Error::EscrowNotFound)?;
+
+        let day = env.ledger().timestamp() / SECONDS_PER_DAY;
+        let spent_today = Self::day_spent_on(&env, day);
+        if spent_today + escrow.amount > cfg.daily_limit {
+            return Err(Error::ExceedsDailyLimit);
+        }
+
+        // EFFECTS before INTERACTION (checks-effects-interactions): record spend,
+        // drop the escrow, and release the lock, then move funds out last.
+        let task_spent = Self::task_spent(env.clone(), escrow.task_id);
+        env.storage()
+            .persistent()
+            .set(&DataKey::DaySpent(day), &(spent_today + escrow.amount));
+        env.storage()
+            .persistent()
+            .set(&DataKey::TaskSpent(escrow.task_id), &(task_spent + escrow.amount));
+        env.storage().persistent().remove(&DataKey::EscrowEntry(id));
+        env.storage()
+            .instance()
+            .set(&DataKey::Locked, &(Self::locked(env.clone()) - escrow.amount));
+
+        token::TokenClient::new(&env, &cfg.token).transfer(
+            &env.current_contract_address(),
+            &escrow.payee,
+            &escrow.amount,
+        );
+        env.events()
+            .publish((symbol_short!("released"), id), (escrow.payee, escrow.amount));
+        Ok(())
+    }
+
+    /// After the deadline, the agent reclaims an undelivered escrow — the lock is
+    /// released back to the treasury's free balance. No transfer, no spend recorded.
+    pub fn refund_escrow(env: Env, id: u64) -> Result<(), Error> {
+        let cfg = Self::cfg(&env);
+        cfg.agent.require_auth();
+        let escrow: Escrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::EscrowEntry(id))
+            .ok_or(Error::EscrowNotFound)?;
+
+        if env.ledger().timestamp() < escrow.deadline {
+            return Err(Error::DeadlineNotReached);
+        }
+        env.storage().persistent().remove(&DataKey::EscrowEntry(id));
+        env.storage()
+            .instance()
+            .set(&DataKey::Locked, &(Self::locked(env.clone()) - escrow.amount));
+
+        env.events()
+            .publish((symbol_short!("refunded"), id), (escrow.payee, escrow.amount));
+        Ok(())
+    }
+
+    pub fn get_escrow(env: Env, id: u64) -> Option<Escrow> {
+        env.storage().persistent().get(&DataKey::EscrowEntry(id))
+    }
+
+    /// Total funds currently reserved by open escrows (treasury balance minus this
+    /// is the spendable free balance).
+    pub fn locked(env: Env) -> i128 {
+        env.storage().instance().get(&DataKey::Locked).unwrap_or(0)
     }
 }
 
