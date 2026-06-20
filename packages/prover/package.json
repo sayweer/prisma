@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "fixtures": "tsx src/emit-fixtures.ts"
+    "fixtures": "tsx src/emit-fixtures.ts",
+    "test": "node --import tsx --test src/salt.test.ts"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^13.0.0"

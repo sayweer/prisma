@@ -2,6 +2,7 @@
 // Used by `circomkit prove` and to mint the contract test fixture (Task 6/7).
 import { writeFileSync, mkdirSync } from "node:fs";
 import { H, buildTree } from "../test/helpers.js";
+import { randomFieldSalt } from "../../packages/prover/src/salt.js";
 
 const N = 8;
 const LEVELS = 8;
@@ -12,7 +13,11 @@ async function main() {
 
   const amount = [100, 200, 50, 0, 0, 0, 0, 0]; // sum 350 <= 1000, each <= 300
   const payee = [11n, 22n, 33n, 11n, 11n, 11n, 11n, 11n]; // all whitelisted; pads reuse 11n
-  const salt = [1n, 2n, 3n, 4n, 5n, 6n, 7n, 8n];
+  // CSPRNG salt per slot — commitment hiding depends entirely on salt being
+  // unpredictable (a sequential 1,2,3,... salt is brute-forceable). The full
+  // opening (amount,payee,salt) is written below; that file is the owner's
+  // secret record for later view-key disclosure to an auditor.
+  const salt = Array.from({ length: N }, () => randomFieldSalt());
 
   const commitments: string[] = [];
   const pathElements: string[][] = [];
