@@ -64,9 +64,28 @@ focuses on commitments + the on-chain-verified compliance proof.
 **Toolchain:** Circom + snarkjs (Groth16 / BN254), public Hermez powers-of-tau; on-chain verifier
 generated with `soroban-verifier-gen --curve bn254`, verified via Soroban's `bn254_multi_pairing_check`.
 
+## Upgraded treasury v2 — reputation gate + escrow (live on testnet)
+
+Deployed fresh (the original demo treasury keeps its addresses) to prove the two
+Casper-adapted features on-chain. `zk-deployer` is admin + agent; token = native XLM SAC.
+
+| Item | Value |
+|------|-------|
+| **Treasury v2** | `CDKQGDPLRX6DOCQTI5KVMZNGMPKMSRNGJRVCQ7LAAQGB2S5JKDCHXT5H` |
+| Reputation Oracle (stellar-8004 stand-in) | `CCJFIEYFNPRTJVCOGOSESYC5Z6FHHHYAH36V7QTZEDPKESY6O5TPINKY` |
+
+- **Reputation-gated payee** — a payee that is NOT whitelisted but scores ≥ threshold is paid on-chain: [tx `8d62132f…`](https://stellar.expert/explorer/testnet/tx/8d62132f4940f71758a351e68c8a7fe0f24b14207abf8c9c3eed6b3842c215cb)
+- **Escrow release** — locked funds released to the payee on approval: [tx `df742d98…`](https://stellar.expert/explorer/testnet/tx/df742d987d85efb517a164b68e36c9302c4daf623c15dcaf416c73cbb26f6c4b)
+- **Escrow refund** — an expired escrow unlocks back to free balance (`locked → 0`): [tx `b545aeb4…`](https://stellar.expert/explorer/testnet/tx/b545aeb489e8e36f73b195f299b5926f2387979cd71701bb428a8b099a718e46)
+
+Contract tests: `cargo test -p treasury` → **14/14** (6 core + 3 reputation + 5 escrow).
+The reputation source is an ERC-8004-style registry (`reputation_of(agent) → i128`); the
+oracle above is a demo stand-in for trionlabs/stellar-8004, which is the production target.
+
 ## Error codes
 
-`1` InvalidAmount · `2` PayeeNotWhitelisted · `3` ExceedsTaskLimit · `4` ExceedsDailyLimit
+`1` InvalidAmount · `2` PayeeNotWhitelisted · `3` ExceedsTaskLimit · `4` ExceedsDailyLimit ·
+`5` BelowReputationThreshold · `6` InsufficientFreeBalance · `7` EscrowNotFound · `8` DeadlineNotReached
 
 ## Funding rail — muxed attribution
 
