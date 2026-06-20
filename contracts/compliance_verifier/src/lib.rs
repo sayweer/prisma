@@ -2,7 +2,7 @@
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short,
     crypto::bn254::{Bn254Fr, Bn254G1Affine, Bn254G2Affine, BN254_G1_SERIALIZED_SIZE, BN254_G2_SERIALIZED_SIZE},
-    Bytes, BytesN, Env, Vec,
+    Address, Bytes, BytesN, Env, Vec,
 };
 
 #[cfg(test)]
@@ -31,6 +31,27 @@ pub struct Proof {
     pub a: Bn254G1Affine,
     pub b: Bn254G2Affine,
     pub c: Bn254G1Affine,
+}
+
+/// The compliance policy the owner anchors at deploy time, stored as the raw
+/// 32-byte field-element encoding of each public signal. A submitted proof must
+/// carry exactly these values, so the attestation provably means "the agent
+/// obeyed *this owner's* policy" — not some self-chosen one.
+#[derive(Clone)]
+#[contracttype]
+pub struct ExpectedPolicy {
+    pub daily_limit: BytesN<32>,
+    pub per_task_limit: BytesN<32>,
+    pub whitelist_root: BytesN<32>,
+}
+
+#[derive(Clone)]
+#[contracttype]
+pub enum DataKey {
+    Admin,
+    Policy,
+    /// Marks a periodId as already attested (replay guard). Persistent.
+    Attested(BytesN<32>),
 }
 
 // AUTO-GENERATED VK BYTES (uncompressed). DO NOT EDIT.
@@ -74,6 +95,32 @@ pub struct ComplianceVerifier;
 
 #[contractimpl]
 impl ComplianceVerifier {
+    /// Atomic init at deploy time. Anchors the policy the proofs are checked against
+    /// (32-byte field-element encoding of dailyLimit, perTaskLimit, whitelistRoot)
+    /// and records the owner. No front-runnable `initialize`.
+    pub fn __constructor(
+        env: Env,
+        admin: Address,
+        daily_limit: BytesN<32>,
+        per_task_limit: BytesN<32>,
+        whitelist_root: BytesN<32>,
+    ) {
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(
+            &DataKey::Policy,
+            &ExpectedPolicy {
+                daily_limit,
+                per_task_limit,
+                whitelist_root,
+            },
+        );
+    }
+
+    /// The policy this verifier was anchored to.
+    pub fn get_policy(env: Env) -> ExpectedPolicy {
+        env.storage().instance().get(&DataKey::Policy).unwrap()
+    }
+
     pub fn verify_proof(env: Env, proof: Proof, pub_signals: Vec<Bn254Fr>) -> Result<bool, Groth16Error> {
         let bn = env.crypto().bn254();
         let vk = vk(&env);
@@ -96,12 +143,37 @@ impl ComplianceVerifier {
     }
 
     /// Client-friendly entrypoint: verify a compliance proof from raw bytes and,
-    /// on success, emit ComplianceAttested. Traps on an invalid proof.
+    /// on success, emit ComplianceAttested. Traps on an invalid proof, on a proof
+    /// whose public policy does not match the anchored policy, or on a replayed period.
     ///
     /// proof_bytes  = a(64) || b(128) || c(64)         = 256 bytes
     /// public_bytes = 12 field elements x 32 bytes     = 384 bytes
     ///   layout: [dailyLimit, perTaskLimit, whitelistRoot, periodId, commitments[8]]
     pub fn verify(env: Env, proof_bytes: Bytes, public_bytes: Bytes) {
+        // ---- POLICY BINDING: the proof must assert *this owner's* policy ----
+        // Without this the verifier is a vacuous "some self-chosen policy held" oracle.
+        let policy: ExpectedPolicy = env.storage().instance().get(&DataKey::Policy).unwrap();
+        let daily: BytesN<32> = public_bytes.slice(0..32).try_into().unwrap();
+        let per_task: BytesN<32> = public_bytes.slice(32..64).try_into().unwrap();
+        let whitelist_root: BytesN<32> = public_bytes.slice(64..96).try_into().unwrap();
+        if daily != policy.daily_limit
+            || per_task != policy.per_task_limit
+            || whitelist_root != policy.whitelist_root
+        {
+            panic!("policy mismatch");
+        }
+
+        // ---- REPLAY GUARD: a periodId can be attested at most once ----
+        let period_id: BytesN<32> = public_bytes.slice(96..128).try_into().unwrap();
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::Attested(period_id.clone()))
+        {
+            panic!("already attested");
+        }
+
+        // ---- on-chain Groth16 pairing check ----
         let a: BytesN<64> = proof_bytes.slice(0..64).try_into().unwrap();
         let b: BytesN<128> = proof_bytes.slice(64..192).try_into().unwrap();
         let c: BytesN<64> = proof_bytes.slice(192..256).try_into().unwrap();
@@ -123,10 +195,10 @@ impl ComplianceVerifier {
             panic!("invalid compliance proof");
         }
 
-        // Attestation: bind to the period + whitelist these payments were checked against.
-        // public signal 2 = whitelistRoot (bytes 64..96), signal 3 = periodId (bytes 96..128).
-        let whitelist_root: BytesN<32> = public_bytes.slice(64..96).try_into().unwrap();
-        let period_id: BytesN<32> = public_bytes.slice(96..128).try_into().unwrap();
+        // ---- EFFECTS: consume the period, then attest. Any panic above reverts. ----
+        env.storage()
+            .persistent()
+            .set(&DataKey::Attested(period_id.clone()), &true);
         env.events()
             .publish((symbol_short!("attested"),), (whitelist_root, period_id));
     }
