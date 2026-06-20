@@ -1,9 +1,11 @@
 // x402 "exact" scheme payment requirements (the JSON a server returns with HTTP 402),
-// trimmed to the fields the bounded gate needs. See x402-stellar / coinbase/x402.
+// trimmed to the fields the bounded gate needs. See @x402/stellar / coinbase/x402.
 export interface PaymentRequirements {
+  /** protocol version; carried at the envelope level in the full 402 body, flattened here */
+  x402Version: number; // currently 1
   scheme: string; // "exact"
-  network: string; // e.g. "stellar-testnet"
-  /** amount in atomic units (USDC 7-decimals), as a decimal string */
+  network: string; // CAIP-2, e.g. "stellar:testnet" / "stellar:pubnet"
+  /** amount in atomic units (asset's own decimals), as a decimal string */
   maxAmountRequired: string;
   asset: string; // SEP-41 contract id of the payment asset
   payTo: string; // recipient address

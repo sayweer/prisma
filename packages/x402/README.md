@@ -24,7 +24,7 @@ would reject; `treasury.pay` is the final, on-chain word.
 
 ## Production integration (the seam)
 
-- **Protocol/client:** the [`x402-stellar`](https://www.npmjs.com/package/x402-stellar) package (Soroban **auth-entry signing** — the Stellar x402 scheme).
+- **Protocol/client:** the [`@x402/stellar`](https://www.npmjs.com/package/@x402/stellar) package (Soroban **auth-entry signing** — the Stellar x402 scheme).
 - **Facilitator (testnet):** OpenZeppelin Relayer plugin at `https://channels.openzeppelin.com/x402/testnet` (`/verify`, `/settle`, `/supported`), sponsored fees.
 - **Asset:** testnet USDC (SEP-41) `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`.
 - **Settlement:** `settle` signs the agent's Soroban auth-entry for the v2 treasury's `pay()` so the bounded contract enforces policy at settlement time.

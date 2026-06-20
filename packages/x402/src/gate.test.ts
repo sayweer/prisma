@@ -8,8 +8,9 @@ const TOKEN = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"; // tes
 
 function req(over: Partial<PaymentRequirements> = {}): PaymentRequirements {
   return {
+    x402Version: 1,
     scheme: "exact",
-    network: "stellar-testnet",
+    network: "stellar:testnet", // CAIP-2
     maxAmountRequired: "50000000", // 5 USDC
     asset: TOKEN,
     payTo: "GVENDOR",
