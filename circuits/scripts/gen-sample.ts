@@ -1,51 +1,26 @@
-// Emits a valid, compliant sample input for the compliance circuit.
-// Used by `circomkit prove` and to mint the contract test fixture (Task 6/7).
+// Emits the default compliant sample input for the compliance circuit (the contract
+// test fixture). Thin wrapper over the parametric prover's buildInput — one source of
+// truth for how a batch becomes a circuit input.
 import { writeFileSync, mkdirSync } from "node:fs";
-import { H, buildTree } from "../test/helpers.js";
-import { randomFieldSalt } from "../../packages/prover/src/salt.js";
+import { buildInput, type ComplianceBatch } from "./prove.js";
 
-const N = 8;
-const LEVELS = 8;
-const MEMBERS = [11n, 22n, 33n];
+const DEFAULT: ComplianceBatch = {
+  payments: [
+    { amount: 100n, payee: 11n },
+    { amount: 200n, payee: 22n },
+    { amount: 50n, payee: 33n },
+  ], // sum 350 <= 1000, each <= 300
+  whitelist: [11n, 22n, 33n],
+  dailyLimit: 1000n,
+  perTaskLimit: 300n,
+  periodId: 1n,
+};
 
 async function main() {
-  const tree = await buildTree(MEMBERS, LEVELS);
-
-  const amount = [100, 200, 50, 0, 0, 0, 0, 0]; // sum 350 <= 1000, each <= 300
-  const payee = [11n, 22n, 33n, 11n, 11n, 11n, 11n, 11n]; // all whitelisted; pads reuse 11n
-  // CSPRNG salt per slot — commitment hiding depends entirely on salt being
-  // unpredictable (a sequential 1,2,3,... salt is brute-forceable). The full
-  // opening (amount,payee,salt) is written below; that file is the owner's
-  // secret record for later view-key disclosure to an auditor.
-  const salt = Array.from({ length: N }, () => randomFieldSalt());
-
-  const commitments: string[] = [];
-  const pathElements: string[][] = [];
-  const pathIndices: number[][] = [];
-  for (let i = 0; i < N; i++) {
-    commitments.push((await H([amount[i], payee[i], salt[i]])).toString());
-    const idx = MEMBERS.findIndex((m) => m === payee[i]);
-    const p = tree.pathFor(idx >= 0 ? idx : 0);
-    pathElements.push(p.pathElements.map((x) => x.toString()));
-    pathIndices.push(p.pathIndices);
-  }
-
-  const input = {
-    dailyLimit: "1000",
-    perTaskLimit: "300",
-    whitelistRoot: tree.root.toString(),
-    periodId: "1",
-    commitments,
-    amount: amount.map(String),
-    payee: payee.map(String),
-    salt: salt.map(String),
-    pathElements,
-    pathIndices,
-  };
-
+  const input = await buildInput(DEFAULT);
   mkdirSync("inputs/compliance", { recursive: true });
   writeFileSync("inputs/compliance/default.json", JSON.stringify(input, null, 2));
-  console.log("wrote inputs/compliance/default.json  (root=" + tree.root.toString() + ")");
+  console.log("wrote inputs/compliance/default.json  (root=" + input.whitelistRoot + ")");
 }
 
 main();

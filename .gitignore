@@ -20,3 +20,6 @@ build/
 *.wtns
 circuits/build/
 circuits/circuits/test/
+
+# parametric prover scratch input (default.json is the committed fixture source)
+circuits/inputs/compliance/live.json
