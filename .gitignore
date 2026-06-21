@@ -20,6 +20,11 @@ build/
 *.wtns
 circuits/build/
 circuits/circuits/test/
+# circomkit auto-generated entrypoint
+circuits/circuits/main/
+
+# Tooling state (superstack / cso reports)
+.superstack/
 
 # parametric prover scratch input (default.json is the committed fixture source)
 circuits/inputs/compliance/live.json
