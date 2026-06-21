@@ -89,7 +89,7 @@ const nav: React.CSSProperties = {
   position: "fixed",
   top: 16,
   right: 16,
-  zIndex: 50,
+  zIndex: 1000,
   display: "flex",
   gap: 6,
   padding: 4,

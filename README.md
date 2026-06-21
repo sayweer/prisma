@@ -6,6 +6,7 @@
 
 A non-custodial Soroban treasury that lets a business hand an autonomous AI agent **real money to spend** — where the **contract**, not the model's good behaviour, enforces the limits. Every payment is auto-accounted, and Stellar settles in sub-cents.
 
+[![CI](https://github.com/Bekirerdem/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/Bekirerdem/prism/actions/workflows/ci.yml)
 ![Build on Stellar](https://img.shields.io/badge/Build_on_Stellar-IBW_2026-7C3AED?style=flat-square)
 ![Network](https://img.shields.io/badge/network-Stellar_testnet-22D3EE?style=flat-square)
 ![Contract](https://img.shields.io/badge/contract-Rust_·_Soroban-E06C2B?style=flat-square)
@@ -172,6 +173,12 @@ The **Wallet** tab (top-right nav) is a self-contained Stellar dApp — connect/
 | Connected · balance · confirmed payment | Payment successful on Stellar Expert |
 |:---:|:---:|
 | ![Wallet connected, XLM balance, and a confirmed testnet payment](docs/screenshots/01-wallet-send.png) | ![The payment, successful on Stellar Expert](docs/screenshots/02-tx-stellar-expert.png) |
+
+**Mobile responsive** (390 px):
+
+| Agent dashboard | Wallet |
+|:---:|:---:|
+| ![Agent dashboard on mobile](docs/screenshots/05-mobile-dashboard.png) | ![Wallet on mobile](docs/screenshots/04-mobile-wallet.png) |
 
 ## Project structure
 
