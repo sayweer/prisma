@@ -159,14 +159,19 @@ npm run dev        # opens on http://localhost:5173 (or the next free port)
 
 The dashboard reads live testnet state, and the embedded agent key (testnet-only, zero value) lets the agent sign its own payments — that's the whole point: **the contract is the safety, not a human clicking approve.** A build-time guard refuses to load the bundled key on any non-testnet network.
 
-The **Wallet** tab (top-right nav) is a self-contained Stellar dApp — connect/disconnect **Freighter**, view your testnet **XLM balance**, and **send an XLM payment** with success/failure + tx-hash feedback. It's also the foundation of Prism's per-user login (*connect your wallet = your account*).
+The **Wallet** tab (top-right nav) is a self-contained Stellar dApp — connect/disconnect **any Stellar wallet** (Freighter · xBull · Albedo · LOBSTR · Rabet · Hana, via [**StellarWalletsKit**](https://stellarwalletskit.dev/)), view your testnet **XLM balance**, and **send an XLM payment** with success/failure + tx-hash feedback. It surfaces three error types (wallet not installed · request rejected · insufficient balance) and is also the foundation of Prism's per-user login (*connect your wallet = your account*).
 
-### Screenshots — Wallet flow
+### Screenshots
 
-| Connected wallet · balance · confirmed payment | Payment successful on-chain |
+**Multi-wallet connect — StellarWalletsKit** (Freighter · xBull · Albedo · LOBSTR · Rabet · Hana):
+
+![Connect Wallet modal listing the available wallet options](docs/screenshots/03-wallet-options.png)
+
+**Connected wallet → balance → a confirmed payment, verified on-chain:**
+
+| Connected · balance · confirmed payment | Payment successful on Stellar Expert |
 |:---:|:---:|
 | ![Wallet connected, XLM balance, and a confirmed testnet payment](docs/screenshots/01-wallet-send.png) | ![The payment, successful on Stellar Expert](docs/screenshots/02-tx-stellar-expert.png) |
-| Freighter connected (`G…TDQS`), balance shown, and *"Payment sent — confirmed on testnet ✓"*. | The same payment, **Status: Successful** on Stellar Expert (testnet). |
 
 ## Project structure
 

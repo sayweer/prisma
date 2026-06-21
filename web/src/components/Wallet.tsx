@@ -1,25 +1,69 @@
-// Level 1 / White Belt — a self-contained Stellar wallet flow:
-// connect/disconnect Freighter, show the testnet XLM balance, and send an XLM
-// payment with clear success/failure feedback. This is also the foundation of
-// Prism's per-user login ("connect your wallet = your account").
+// Level 2 — multi-wallet via StellarWalletsKit. The connect button opens a modal of
+// wallet options (Freighter / xBull / Albedo / Lobstr / Rabet / Hana); then show the
+// testnet XLM balance and send an XLM payment with success/failure + tx-hash feedback.
+// Three error types are surfaced: wallet not installed, request rejected, insufficient
+// balance. (Premium visual pass is a later phase with Gemini; this is the functional layer.)
 import { useCallback, useState } from "react";
-import {
-  isConnected as freighterIsConnected,
-  requestAccess,
-  signTransaction,
-} from "@stellar/freighter-api";
-import {
-  Asset,
-  BASE_FEE,
-  Horizon,
-  Operation,
-  TransactionBuilder,
-} from "@stellar/stellar-sdk";
+import { Asset, BASE_FEE, Horizon, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
+import { StellarWalletsKit, Networks } from "@creit.tech/stellar-wallets-kit";
+import { FreighterModule, FREIGHTER_ID } from "@creit.tech/stellar-wallets-kit/modules/freighter";
+import { xBullModule } from "@creit.tech/stellar-wallets-kit/modules/xbull";
+import { AlbedoModule } from "@creit.tech/stellar-wallets-kit/modules/albedo";
+import { LobstrModule } from "@creit.tech/stellar-wallets-kit/modules/lobstr";
+import { RabetModule } from "@creit.tech/stellar-wallets-kit/modules/rabet";
+import { HanaModule } from "@creit.tech/stellar-wallets-kit/modules/hana";
 import { EXPLORER, HORIZON_URL, NETWORK_PASSPHRASE, shortAddr } from "../config";
 
 const server = new Horizon.Server(HORIZON_URL);
 
+// One-time kit setup. `authModal()` lists these as the available "wallet options".
+StellarWalletsKit.init({
+  network: Networks.TESTNET,
+  selectedWalletId: FREIGHTER_ID,
+  modules: [
+    new FreighterModule(),
+    new xBullModule(),
+    new AlbedoModule(),
+    new LobstrModule(),
+    new RabetModule(),
+    new HanaModule(),
+  ],
+});
+
 type Status = { kind: "idle" | "info" | "success" | "error"; msg: string; hash?: string };
+
+function errText(e: unknown): string {
+  if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
+  return typeof e === "string" ? e : "";
+}
+
+// Error type 1 (not installed) + 2 (rejected) on connect.
+function connectErr(e: unknown): string {
+  const m = errText(e).toLowerCase();
+  if (m.includes("not available") || m.includes("not installed") || m.includes("install")) {
+    return "That wallet isn't installed — pick another option.";
+  }
+  if (m.includes("reject") || m.includes("denied") || m.includes("close") || m.includes("cancel")) {
+    return "Connection cancelled.";
+  }
+  return errText(e) || "Couldn't connect a wallet.";
+}
+
+// Error type 2 (signature rejected) + 3 (insufficient balance) on send.
+function sendErr(e: unknown): string {
+  const codes = (e as {
+    response?: { data?: { extras?: { result_codes?: { operations?: string[]; transaction?: string } } } };
+  })?.response?.data?.extras?.result_codes;
+  const opCodes = codes?.operations?.join(", ") || codes?.transaction || "";
+  if (opCodes.includes("underfunded") || opCodes.toLowerCase().includes("insufficient")) {
+    return "Insufficient balance for this payment.";
+  }
+  const m = errText(e).toLowerCase();
+  if (m.includes("reject") || m.includes("denied") || m.includes("cancel")) {
+    return "Signature rejected in your wallet.";
+  }
+  return opCodes || errText(e) || "Transaction failed.";
+}
 
 export default function Wallet() {
   const [address, setAddress] = useState<string | null>(null);
@@ -40,27 +84,27 @@ export default function Wallet() {
   }, []);
 
   const connect = useCallback(async () => {
-    setStatus({ kind: "info", msg: "Connecting Freighter…" });
+    setStatus({ kind: "info", msg: "Choose a wallet…" });
     try {
-      const conn = await freighterIsConnected();
-      if (!conn.isConnected) {
-        setStatus({ kind: "error", msg: "Freighter not detected — install the browser extension." });
+      const { address: addr } = await StellarWalletsKit.authModal();
+      if (!addr) {
+        setStatus({ kind: "error", msg: "No wallet selected." });
         return;
       }
-      const access = await requestAccess();
-      if (access.error || !access.address) {
-        setStatus({ kind: "error", msg: access.error || "Access denied." });
-        return;
-      }
-      setAddress(access.address);
+      setAddress(addr);
       setStatus({ kind: "idle", msg: "" });
-      await loadBalance(access.address);
+      await loadBalance(addr);
     } catch (e) {
-      setStatus({ kind: "error", msg: (e as Error)?.message || "Connection failed." });
+      setStatus({ kind: "error", msg: connectErr(e) });
     }
   }, [loadBalance]);
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    try {
+      await StellarWalletsKit.disconnect();
+    } catch {
+      /* ignore */
+    }
     setAddress(null);
     setBalance(null);
     setDest("");
@@ -88,27 +132,20 @@ export default function Wallet() {
         .setTimeout(180)
         .build();
 
-      setStatus({ kind: "info", msg: "Awaiting Freighter signature…" });
-      const signed = await signTransaction(tx.toXDR(), { networkPassphrase: NETWORK_PASSPHRASE, address });
-      if (signed.error) {
-        setStatus({ kind: "error", msg: String(signed.error) });
-        return;
-      }
+      setStatus({ kind: "info", msg: "Awaiting wallet signature…" });
+      const { signedTxXdr } = await StellarWalletsKit.signTransaction(tx.toXDR(), {
+        networkPassphrase: NETWORK_PASSPHRASE,
+        address,
+      });
 
       setStatus({ kind: "info", msg: "Submitting to testnet…" });
-      const toSubmit = TransactionBuilder.fromXDR(signed.signedTxXdr, NETWORK_PASSPHRASE);
+      const toSubmit = TransactionBuilder.fromXDR(signedTxXdr, NETWORK_PASSPHRASE);
       const res = await server.submitTransaction(toSubmit);
       setStatus({ kind: "success", msg: "Payment sent — confirmed on testnet ✓", hash: res.hash });
       setAmount("");
       await loadBalance(address);
     } catch (e) {
-      const err = e as { response?: { data?: { extras?: { result_codes?: { operations?: string[] } }; title?: string } }; message?: string };
-      const detail =
-        err?.response?.data?.extras?.result_codes?.operations?.join(", ") ||
-        err?.response?.data?.title ||
-        err?.message ||
-        "Transaction failed.";
-      setStatus({ kind: "error", msg: detail });
+      setStatus({ kind: "error", msg: sendErr(e) });
     } finally {
       setBusy(false);
     }
@@ -122,12 +159,12 @@ export default function Wallet() {
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 24, letterSpacing: "-0.02em" }}>◭ Wallet</h1>
         <p style={{ color: "#A0A0B8", marginTop: 6, fontSize: 14 }}>
-          Connect Freighter, view your testnet XLM balance, and send a payment.
+          Connect any Stellar wallet, view your testnet XLM balance, and send a payment.
         </p>
 
         {!address ? (
           <button style={primaryBtn} onClick={connect}>
-            Connect Freighter
+            Connect a wallet
           </button>
         ) : (
           <>
