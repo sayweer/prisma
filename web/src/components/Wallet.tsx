@@ -13,6 +13,7 @@ import { LobstrModule } from "@creit.tech/stellar-wallets-kit/modules/lobstr";
 import { RabetModule } from "@creit.tech/stellar-wallets-kit/modules/rabet";
 import { HanaModule } from "@creit.tech/stellar-wallets-kit/modules/hana";
 import { EXPLORER, HORIZON_URL, NETWORK_PASSPHRASE, shortAddr } from "../config";
+import { connectErr, sendErr } from "../lib/wallet-errors";
 
 const server = new Horizon.Server(HORIZON_URL);
 
@@ -31,39 +32,6 @@ StellarWalletsKit.init({
 });
 
 type Status = { kind: "idle" | "info" | "success" | "error"; msg: string; hash?: string };
-
-function errText(e: unknown): string {
-  if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
-  return typeof e === "string" ? e : "";
-}
-
-// Error type 1 (not installed) + 2 (rejected) on connect.
-function connectErr(e: unknown): string {
-  const m = errText(e).toLowerCase();
-  if (m.includes("not available") || m.includes("not installed") || m.includes("install")) {
-    return "That wallet isn't installed — pick another option.";
-  }
-  if (m.includes("reject") || m.includes("denied") || m.includes("close") || m.includes("cancel")) {
-    return "Connection cancelled.";
-  }
-  return errText(e) || "Couldn't connect a wallet.";
-}
-
-// Error type 2 (signature rejected) + 3 (insufficient balance) on send.
-function sendErr(e: unknown): string {
-  const codes = (e as {
-    response?: { data?: { extras?: { result_codes?: { operations?: string[]; transaction?: string } } } };
-  })?.response?.data?.extras?.result_codes;
-  const opCodes = codes?.operations?.join(", ") || codes?.transaction || "";
-  if (opCodes.includes("underfunded") || opCodes.toLowerCase().includes("insufficient")) {
-    return "Insufficient balance for this payment.";
-  }
-  const m = errText(e).toLowerCase();
-  if (m.includes("reject") || m.includes("denied") || m.includes("cancel")) {
-    return "Signature rejected in your wallet.";
-  }
-  return opCodes || errText(e) || "Transaction failed.";
-}
 
 export default function Wallet() {
   const [address, setAddress] = useState<string | null>(null);

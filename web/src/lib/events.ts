@@ -20,7 +20,7 @@ const short = (s: unknown) => {
 };
 const xlm = (v: unknown) => (Number(v) / 1e7).toLocaleString(undefined, { maximumFractionDigits: 4 });
 // 32-byte big-endian field element (e.g. periodId) -> its integer value.
-const bytesToInt = (b: unknown): string => {
+export const bytesToInt = (b: unknown): string => {
   if (b instanceof Uint8Array) {
     let n = 0n;
     for (const x of b) n = (n << 8n) | BigInt(x);
