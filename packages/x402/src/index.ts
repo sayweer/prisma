@@ -1,5 +1,6 @@
 export * from "./types.js";
 export { gateX402 } from "./gate.js";
+export { buildPayArgs, makeTreasurySettle } from "./settle.js";
 
 import { gateX402 } from "./gate.js";
 import type { GateResult, PaymentRequirements, TreasuryPolicy } from "./types.js";

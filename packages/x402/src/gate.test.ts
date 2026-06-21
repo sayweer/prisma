@@ -4,14 +4,14 @@ import { gateX402 } from "./gate.js";
 import { boundedPay } from "./index.js";
 import type { PaymentRequirements, TreasuryPolicy } from "./types.js";
 
-const TOKEN = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"; // testnet USDC
+const TOKEN = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"; // testnet native XLM SAC (treasury v2 token)
 
 function req(over: Partial<PaymentRequirements> = {}): PaymentRequirements {
   return {
     x402Version: 1,
     scheme: "exact",
     network: "stellar:testnet", // CAIP-2
-    maxAmountRequired: "50000000", // 5 USDC
+    maxAmountRequired: "50000000", // 5 XLM (7 decimals)
     asset: TOKEN,
     payTo: "GVENDOR",
     resource: "https://api.example.com/data",
@@ -21,8 +21,8 @@ function req(over: Partial<PaymentRequirements> = {}): PaymentRequirements {
 
 function policy(over: Partial<TreasuryPolicy> = {}): TreasuryPolicy {
   return {
-    perTaskLimit: 100000000n, // 10 USDC
-    dailyLimit: 200000000n, // 20 USDC
+    perTaskLimit: 100000000n, // 10 XLM
+    dailyLimit: 200000000n, // 20 XLM
     daySpent: 0n,
     token: TOKEN,
     isAllowedPayee: (p) => p === "GVENDOR",
