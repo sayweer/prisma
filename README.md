@@ -180,6 +180,10 @@ The **Wallet** tab (top-right nav) is a self-contained Stellar dApp — connect/
 |:---:|:---:|
 | ![Agent dashboard on mobile](docs/screenshots/05-mobile-dashboard.png) | ![Wallet on mobile](docs/screenshots/04-mobile-wallet.png) |
 
+**Continuous integration** — every push runs three jobs: Soroban contracts (`cargo test`), frontend (Vitest + build), and the x402 + prover package tests.
+
+![CI — all jobs passing](docs/screenshots/07-ci-run-detail.png)
+
 ## Project structure
 
 ```
