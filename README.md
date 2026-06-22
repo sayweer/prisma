@@ -7,17 +7,31 @@
 A non-custodial Soroban treasury that lets a business hand an autonomous AI agent **real money to spend** — where the **contract**, not the model's good behaviour, enforces the limits. Every payment is auto-accounted, and Stellar settles in sub-cents.
 
 [![CI](https://github.com/Bekirerdem/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/Bekirerdem/prism/actions/workflows/ci.yml)
-![Build on Stellar](https://img.shields.io/badge/Build_on_Stellar-IBW_2026-7C3AED?style=flat-square)
-![Network](https://img.shields.io/badge/network-Stellar_testnet-22D3EE?style=flat-square)
-![Contract](https://img.shields.io/badge/contract-Rust_·_Soroban-E06C2B?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-treasury_14%2F14_·_zk_7%2F7-00FF43?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-A0A0B8?style=flat-square)
+![Stellar testnet](https://img.shields.io/badge/Stellar-testnet-FDDA24?style=flat-square)
+![Rust · Soroban](https://img.shields.io/badge/Rust_·_Soroban-FDDA24?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-treasury_14%2F14_·_circuit_5%2F5_·_verifier_4%2F4-FDDA24?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square)
 
 **[▶ Live demo](https://web-five-psi-7iqrhfurdh.vercel.app) · [🎤 Pitch deck](https://deck-bice-omega.vercel.app) · [🔗 Contract on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CAYWNXHANRY5GSJAZOR4YTKBKNOKTCITE52ZRKDKCAWLDTYWFFVFSPAZ) · [📄 Deployment & proofs](DEPLOYMENT.md)**
 
 <img src="docs/hero.png" alt="Prism — the wallet your AI agent can't drain" width="840" />
 
 </div>
+
+---
+
+## 🏆 Built during Stellar Hacks: Real-World ZK
+
+Prism's bounded-treasury core predates this hackathon (built at IBW 2026). **Everything zero-knowledge — Prism's entire Confidential layer — was designed and built inside the Stellar Hacks: Real-World ZK window (June 18–22, 2026)**, and is the focus of this submission:
+
+| Date | Built this hackathon |
+|---|---|
+| Jun 18 | Confidential ZK design spec |
+| Jun 19 | Compliance **circuit** (Circom/BN254): per-task range + daily-sum bounds · `Poseidon` commitments · Poseidon-Merkle whitelist membership · Groth16 trusted setup (Hermez ptau) · **on-chain BN254 verifier + attestation** (`CCOLX7NE…`) |
+| Jun 21 | **Hardened verifier** — anchored-policy binding + replay guard, with a live replay-rejected proof on testnet · CSPRNG commitment salt (closed a hiding break) |
+| Jun 22 | **Confidential-mode demo** on the dashboard — commitments + proof + the live attested tx |
+
+Also built in this window (the open-economy trust layer): reputation-gated payees, outcome-bound escrow, and the bounded x402 buyer. Every item is in the git history and verified on testnet (links throughout this README).
 
 ---
 
@@ -128,8 +142,9 @@ Three upgrades take Prism from a walled garden to the open agent economy — eac
 
 1. **Run agent tasks** — the agent autonomously settles 3 vendor payments in USDC. No wallet popup; it signs its own transactions. Each lands with a real Stellar Expert tx link.
 2. **Simulate prompt-injection** — tell the agent to send funds to an unapproved wallet. The contract **rejects it on-chain** (`PayeeNotWhitelisted`). Funds never move. 🔴
-3. **Auto-reconciled spend** — per-task accounting, read straight from the contract.
-4. **Funding rail** — fund a budget via its zero-cost muxed sub-address; the deposit is attributed on-chain with no memo.
+3. **Confidential mode (ZK)** — the same payments shown as `Poseidon` commitments: amount and payee hidden, yet proven within policy and **attested on-chain** (live verify tx). 🔒
+4. **Auto-reconciled spend** — per-task accounting, read straight from the contract.
+5. **Funding rail** — fund a budget via its zero-cost muxed sub-address; the deposit is attributed on-chain with no memo.
 
 ## Live on testnet
 
@@ -205,7 +220,7 @@ docs/                           narrative + assets, design spec & plan
 - **Contract:** Rust / `soroban-sdk` 26 (Soroban, Stellar testnet)
 - **Confidential (ZK):** Circom + `circomlib` (BN254) · snarkjs Groth16 · on-chain verifier via `soroban-verifier-gen` (`bn254_multi_pairing_check`)
 - **Client:** `stellar contract bindings typescript` → typed client
-- **Frontend:** Vite + React 19 + TypeScript, framer-motion, OKLCH spectral design system
+- **Frontend:** Vite + React 19 + TypeScript, framer-motion, cinematic dark design (Stellar-yellow accent)
 - **Trust + rails:** ERC-8004 agent identity + **reputation-gated payees (live)** ([trionlabs/stellar-8004](https://stellar.expert/explorer/testnet/contract/CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH) in production; a stand-in oracle on testnet); **escrow** for pay-on-delivery; a **bounded x402** buyer that caps an agent's pay-per-use API spend.
 
 ## Security
