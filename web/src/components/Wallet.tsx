@@ -31,6 +31,27 @@ StellarWalletsKit.init({
   ],
 });
 
+// Theme the wallet-select modal to match Prism — dark surface + Stellar-yellow accent.
+StellarWalletsKit.setTheme({
+  "background": "#0b0b10",
+  "background-secondary": "#131319",
+  "foreground-strong": "#f3f1ec",
+  "foreground": "#e8e6df",
+  "foreground-secondary": "#94939c",
+  "primary": "#FDDA24",
+  "primary-foreground": "#0F0F0F",
+  "transparent": "transparent",
+  "lighter": "rgba(255,255,255,0.08)",
+  "light": "rgba(255,255,255,0.06)",
+  "light-gray": "rgba(255,255,255,0.12)",
+  "gray": "#56555f",
+  "danger": "#FF4D5E",
+  "border": "rgba(255,255,255,0.13)",
+  "shadow": "rgba(0,0,0,0.6)",
+  "border-radius": "16px",
+  "font-family": "'Inter', system-ui, sans-serif",
+});
+
 type Status = { kind: "idle" | "info" | "success" | "error"; msg: string; hash?: string };
 
 export default function Wallet() {
@@ -125,7 +146,9 @@ export default function Wallet() {
   return (
     <div style={wrap}>
       <div style={card}>
-        <h1 style={{ margin: 0, fontSize: 24, letterSpacing: "-0.02em" }}>◭ Wallet</h1>
+        <h1 style={{ margin: 0, fontSize: 27, letterSpacing: "-0.02em", fontFamily: "'Fraunces', Georgia, serif", fontWeight: 500 }}>
+          <span style={{ color: "#FDDA24" }}>◭</span> Wallet
+        </h1>
         <p style={{ color: "#A0A0B8", marginTop: 6, fontSize: 14 }}>
           Connect any Stellar wallet, view your testnet XLM balance, and send a payment.
         </p>
@@ -213,11 +236,11 @@ const input: React.CSSProperties = {
 };
 const primaryBtn: React.CSSProperties = {
   width: "100%", marginTop: 16, padding: "12px 16px", borderRadius: 11, border: "none", cursor: "pointer",
-  background: "linear-gradient(135deg,#7C3AED,#22D3EE)", color: "#0A0A12", fontWeight: 600, fontSize: 15,
+  background: "#FDDA24", color: "#0F0F0F", fontWeight: 600, fontSize: 15,
 };
 const ghostBtn: React.CSSProperties = {
   padding: "7px 12px", borderRadius: 9, cursor: "pointer", fontSize: 13,
   background: "transparent", border: "1px solid rgba(255,255,255,0.15)", color: "#A0A0B8",
 };
-const linkBtn: React.CSSProperties = { marginTop: 8, background: "none", border: "none", color: "#22D3EE", cursor: "pointer", fontSize: 13, padding: 0 };
+const linkBtn: React.CSSProperties = { marginTop: 8, background: "none", border: "none", color: "#FDDA24", cursor: "pointer", fontSize: 13, padding: 0 };
 const statusBox: React.CSSProperties = { marginTop: 18, padding: "10px 13px", borderRadius: 10, border: "1px solid", fontSize: 13.5, lineHeight: 1.4 };
