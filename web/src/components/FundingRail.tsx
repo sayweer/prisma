@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { muxedFor, sendDeposit, readDeposits, type Deposit } from "../lib/muxed";
-import { BUDGETS, POOL_PK, shortAddr, txUrl, contractUrl } from "../config";
+import { AGENT_PK, BUDGETS, POOL_PK, shortAddr, txUrl, contractUrl } from "../config";
 
 const EASE = [0.2, 0.7, 0.3, 1] as const;
 
@@ -18,8 +18,17 @@ export default function FundingRail() {
 
   async function fund(id: bigint) {
     setBusy(id.toString()); setFundErr(null);
-    try { await sendDeposit(id); await refresh(); }
-    catch (e) { console.error(e); setFundErr("Network busy — try funding again in a moment."); }
+    try {
+      const hash = await sendDeposit(id);
+      // Horizon indexes the new payment a few seconds late, so re-reading immediately
+      // returned the PREVIOUS deposit (an off-by-one that mislabelled the budget). The
+      // deposit is real once sendDeposit resolves — attribute it optimistically by the
+      // funded id; the next mount/refresh reconciles from Horizon.
+      setDeposits((prev) => [
+        { budgetId: id.toString(), amount: "5.0000000", from: AGENT_PK, hash },
+        ...prev.filter((d) => d.hash !== hash),
+      ]);
+    } catch (e) { console.error(e); setFundErr("Network busy — try funding again in a moment."); }
     setBusy(null);
   }
 
