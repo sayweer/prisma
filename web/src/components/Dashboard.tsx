@@ -420,21 +420,24 @@ export default function Dashboard({ onHome }: { onHome: () => void }) {
           <span className="badge badge--id">ZK · BN254 Groth16</span>
         </div>
         <p className="conf__lead">
-          The very same payments — proven inside policy <b>without revealing any amount or payee</b>.
-          Each is committed as <span className="mono">Poseidon(amount, payee, salt)</span>; only the
-          commitments and one proof go on-chain.
+          The <b>same agent run, privately</b> — run the agent above and each settled payment fills
+          in here, proven inside policy <b>without revealing any amount or payee</b>. Each is committed
+          as <span className="mono">Poseidon(amount, payee, salt)</span>; only the commitments and one
+          proof go on-chain.
         </p>
 
         <div className="conf__commits">
           {TASKS.map((t) => {
-            const committed = status[t.taskId.toString()] === "ok";
+            const st = status[t.taskId.toString()] ?? "idle";
+            const label = st === "ok" ? "→ committed ✓"
+              : st === "rej" ? "→ rejected · not committed"
+              : "→ awaiting proof";
+            const cls = st === "ok" ? "ok" : st === "rej" ? "no" : "";
             return (
               <div className="conf__row" key={t.taskId.toString()}>
                 <span className="conf__tag">task #{t.taskId.toString()}</span>
                 <span className="conf__hidden">amount •••• · payee ••••</span>
-                <span className={`conf__commit mono ${committed ? "ok" : ""}`}>
-                  {committed ? "→ committed ✓" : "→ awaiting proof"}
-                </span>
+                <span className={`conf__commit mono ${cls}`}>{label}</span>
               </div>
             );
           })}
