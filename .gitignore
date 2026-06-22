@@ -28,3 +28,6 @@ circuits/circuits/main/
 
 # parametric prover scratch input (default.json is the committed fixture source)
 circuits/inputs/compliance/live.json
+
+# design audit (concept HTML + screenshots — not shipped)
+web/.design-audit/

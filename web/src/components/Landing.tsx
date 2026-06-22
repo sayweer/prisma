@@ -1,295 +1,361 @@
-import { motion } from "framer-motion";
-import PrismMark from "./PrismMark";
-import {
-  TREASURY_ID,
-  USDC_SAC,
-  ROGUE,
-  ATTACKER,
-  contractUrl,
-  fmtUSDC,
-  shortAddr,
-} from "../config";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { TREASURY_ID, contractUrl } from "../config";
+import "./landing.css";
 
-const EASE = [0.2, 0.7, 0.3, 1] as const;
-const SPRING = { type: "spring", stiffness: 320, damping: 26 } as const;
-const T = { nav: 0.12, prism: 0.3, eyebrow: 0.36, l1: 0.44, l2: 0.54, l3: 0.64, sub: 0.8, cta: 0.92 };
+const EASE = [0.22, 1, 0.36, 1] as const; // cinematic expo-out
 
-const up = (delay: number) => ({
-  initial: { opacity: 0, y: 22 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.7, ease: EASE, delay },
-});
-const reveal = (delay = 0) => ({
-  initial: { opacity: 0, y: 28 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.65, ease: EASE, delay },
-});
+/* Cinematic line reveal — each line sits in an overflow-hidden mask and rises
+   from below (SplitText feel) on scroll-in. Lines can contain <em> accents. */
+function RevealLines({
+  lines,
+  tag = "h2",
+  className,
+  delay = 0,
+}: {
+  lines: ReactNode[];
+  tag?: "h1" | "h2";
+  className?: string;
+  delay?: number;
+}) {
+  // The visible heading is the observed element (it has box height even while its
+  // inner spans are masked below), so whileInView fires. Child spans animate via
+  // variants — never themselves observed, so the masked transform can't deadlock it.
+  const MTag = tag === "h1" ? motion.h1 : motion.h2;
+  return (
+    <MTag
+      className={className}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ staggerChildren: 0.12, delayChildren: delay }}
+    >
+      {lines.map((ln, i) => (
+        <span className="rmask" key={i}>
+          <motion.span
+            className="rword"
+            variants={{ hidden: { y: "115%" }, show: { y: 0, transition: { duration: 0.95, ease: EASE } } }}
+          >
+            {ln}
+          </motion.span>
+        </span>
+      ))}
+    </MTag>
+  );
+}
+
+/* Generic fade-up on scroll-in. */
+function Reveal({
+  children,
+  className,
+  delay = 0,
+  y = 26,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  y?: number;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.7, ease: EASE, delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ---- live agent ledger: payments stream in, the blocked attempt stays pinned ---- */
+type Row = { tag: string; tagcls?: string; h: string; s: string; amt: string; amtcls?: string };
+const FEED: Row[] = [
+  { tag: "usdc · pay", h: "GPT-4o summarization", s: "Inference API · task #101", amt: "3.00", amtcls: "ok" },
+  { tag: "usdc · pay", h: "Firecrawl web scrape", s: "Data API · task #102", amt: "2.00", amtcls: "ok" },
+  { tag: "usdc · pay", h: "Image generation ×12", s: "Render API · task #103", amt: "4.00", amtcls: "ok" },
+  { tag: "xlm · fund", tagcls: "tag--x", h: "Top-up · budget #1", s: "muxed deposit · no memo", amt: "+5.00" },
+];
+const BLOCKED: Row = { tag: "blocked", tagcls: "tag--no", h: "Drain → unknown wallet", s: "PayeeNotWhitelisted", amt: "0.00", amtcls: "no" };
+
+function LiveLedger() {
+  const [rows, setRows] = useState(() => FEED.slice(0, 3).map((r, i) => ({ ...r, id: i })));
+  const counter = useRef(FEED.length);
+  const feedIdx = useRef(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      feedIdx.current = (feedIdx.current + 1) % FEED.length;
+      const next = { ...FEED[feedIdx.current], id: counter.current++ };
+      setRows((prev) => [next, ...prev].slice(0, 3));
+    }, 2900);
+    return () => clearInterval(id);
+  }, []);
+
+  const PRow = (r: Row) => (
+    <div className="prow">
+      <span className={`tag ${r.tagcls ?? ""}`}>{r.tag}</span>
+      <span className="d">
+        <div className="h">{r.h}</div>
+        <div className="s">{r.s}</div>
+      </span>
+      <span className={`amt ${r.amtcls ?? ""}`}>{r.amt}</span>
+    </div>
+  );
+
+  return (
+    <Reveal delay={0.2}>
+      <div className="proofcard">
+        <div className="proofcard__bar">
+          <span className="t"><i /> Agent · live ledger</span>
+          <span className="net">testnet</span>
+        </div>
+        <div style={{ position: "relative" }}>
+          <AnimatePresence initial={false}>
+            {rows.map((r) => (
+              <motion.div
+                key={r.id}
+                layout
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.5, ease: EASE }}
+                style={{ overflow: "hidden" }}
+              >
+                {PRow(r)}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          {PRow(BLOCKED)}
+        </div>
+        <div className="proofcard__foot">
+          <span>18 / 50 USDC today</span>
+          <span>daily limit · on-chain</span>
+        </div>
+      </div>
+    </Reveal>
+  );
+}
 
 export default function Landing({ onLaunch }: { onLaunch: () => void }) {
   return (
-    <div className="landing">
-      {/* ───────── nav ───────── */}
-      <motion.nav className="nav" {...up(T.nav)}>
-        <div className="nav__brand">
-          <PrismMark variant="mark" size={30} />
-          <span className="nav__name">Prism</span>
+    <div className="lx">
+      {/* nav */}
+      <nav className="nav">
+        <div className="brand"><span className="glyph" /> Prism</div>
+        <div className="links">
+          <span className="live"><i /> Stellar Testnet</span>
+          <a href="#how">How it works</a>
+          <a href="https://github.com/Bekirerdem/prism" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
-        <div className="nav__r">
-          <span className="pill"><span className="dot dot--live" /> Stellar Testnet</span>
-          <a className="pill mono" href="https://github.com/Bekirerdem" target="_blank" rel="noreferrer">GitHub ↗</a>
-        </div>
-      </motion.nav>
+        <button className="navcta" onClick={onLaunch}>Launch demo</button>
+      </nav>
 
       <main className="wrap">
-        {/* ───────── hero ───────── */}
-        <section className="hero">
-          <div>
-            <motion.span
-              className="eyebrow hero__eye pill"
-              style={{ borderColor: "rgba(124,58,237,0.3)", color: "#C3A6FF", background: "rgba(124,58,237,0.08)" }}
-              {...up(T.eyebrow)}
-            >
-              Bounded agent payments · on Stellar
-            </motion.span>
-            <h1 className="hero__title">
-              <motion.span {...up(T.l1)}>The wallet your</motion.span>
-              <motion.span {...up(T.l2)}>AI agent</motion.span>
-              <motion.span className="spectral-focal" {...up(T.l3)}>can&apos;t&nbsp;drain.</motion.span>
-            </h1>
-            <motion.p className="hero__sub" {...up(T.sub)}>
-              Hand an autonomous agent real money to spend. The <b>contract</b> — not the model&apos;s
-              good behaviour — enforces the limits, every payment is auto-accounted, and Stellar
-              settles in sub-cents.
-            </motion.p>
-            <motion.div
-              className="hero__cta"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...SPRING, delay: T.cta }}
-            >
-              <button className="btn btn--primary" onClick={onLaunch}>Launch live demo →</button>
-              <a className="btn" href={contractUrl(TREASURY_ID)} target="_blank" rel="noreferrer">View contract on testnet</a>
-            </motion.div>
-          </div>
-
-        </section>
-
-        {/* ───────── stat console ───────── */}
-        <motion.section className="glass glass--violet console" {...reveal()}>
-          <div className="cell">
-            <div className="fig spectral">USDC</div>
-            <div className="lbl">Real on-chain settlement</div>
-          </div>
-          <div className="cell">
-            <div className="fig">&lt; $0.01</div>
-            <div className="lbl">Per agent payment</div>
-          </div>
-          <div className="cell cell--glow">
-            <div className="fig spectral">0</div>
-            <div className="lbl">Funds an exploit can move</div>
-          </div>
-        </motion.section>
-
-        {/* ───────── trust pills ───────── */}
-        <motion.div className="trust" {...reveal(0.05)}>
-          <span className="pill"><span className="dot dot--live" /> LIVE on Stellar testnet</span>
-          <span className="pill">Non-custodial</span>
-          <span className="pill">Sub-cent fees</span>
-          <span className="pill" style={{ borderColor: "rgba(124,58,237,0.34)", color: "#C3A6FF" }}>
-            0 funds an exploit can move
-          </span>
-        </motion.div>
-
-        {/* ───────── how the guardrails work ───────── */}
-        <section className="section">
-          <motion.div className="sec-head" {...reveal()}>
-            <div className="eyebrow sec-eyebrow">How the guardrails work</div>
-            <h2 className="sec-title">Four checks the <span className="spectral">chain enforces</span> — not the model.</h2>
-            <p className="sec-lead">The agent proposes a payment. The treasury contract validates it against your policy and rejects anything outside the lines, on-chain, every time.</p>
-          </motion.div>
-
-          <motion.div className="hex-stage" {...reveal(0.08)}>
-            <div className="hex-grid">
-              {/* connecting wires */}
-              <svg className="hexnet" viewBox="0 0 900 360" preserveAspectRatio="none" aria-hidden="true">
-                <defs>
-                  <linearGradient id="wire" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#7C3AED" stopOpacity="0.8" />
-                    <stop offset="1" stopColor="#22D3EE" stopOpacity="0.5" />
-                  </linearGradient>
-                </defs>
-                <g stroke="url(#wire)" strokeWidth="1.4" fill="none" opacity="0.8">
-                  <path d="M450 150 C 200 180, 130 200, 110 250" />
-                  <path d="M450 150 C 360 200, 330 210, 320 250" />
-                  <path d="M450 150 C 540 200, 570 210, 580 250" />
-                  <path d="M450 150 C 700 180, 770 200, 790 250" />
-                </g>
-                <g fill="#22D3EE">
-                  <circle cx="110" cy="250" r="2.5" />
-                  <circle cx="320" cy="250" r="2.5" />
-                  <circle cx="580" cy="250" r="2.5" />
-                  <circle cx="790" cy="250" r="2.5" />
-                </g>
-              </svg>
-
-              {/* central hex */}
-              <div className="hex hex--center">
-                <div className="hex__shape">
-                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#C3A6FF" strokeWidth="1.6">
-                    <path d="M12 2 L20 6.5 V15.5 L12 20 L4 15.5 V6.5 Z" />
-                    <path d="M9 12 l2 2 l4 -5" stroke="#C9FF23" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <div className="hcap">Treasury<br />Contract</div>
-                  <div className="hsub">Soroban · on-chain</div>
+        {/* hero */}
+        <header className="hero">
+          <div className="hero__grid">
+            <div>
+              <motion.span
+                className="eyebrow"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+              >
+                Bounded · confidential · agentic — on Stellar
+              </motion.span>
+              <RevealLines
+                tag="h1"
+                delay={0.15}
+                lines={["The wallet your", <>AI agent <em>can't&nbsp;drain.</em></>]}
+              />
+              <Reveal delay={0.5}>
+                <p className="lead">
+                  Hand an autonomous agent real money to spend. The <b>contract</b> — not the
+                  model's good behaviour — enforces every limit, proves compliance in{" "}
+                  <b>zero-knowledge</b>, and settles in sub-cents.
+                </p>
+              </Reveal>
+              <Reveal delay={0.62}>
+                <div className="cta">
+                  <button className="btn btn--p" onClick={onLaunch}>Launch live demo →</button>
+                  <a className="btn" href={contractUrl(TREASURY_ID)} target="_blank" rel="noreferrer">Read the contract</a>
                 </div>
-              </div>
-
-              {/* satellites */}
-              <div className="satrow">
-                <div className="sat">
-                  <div className="sat__ico">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" strokeWidth="1.7"><circle cx="9" cy="8" r="3.2" /><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5" strokeLinecap="round" /><path d="M16 11 l2 2 l4 -4" stroke="#C9FF23" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </div>
-                  <h4>Payee whitelist</h4>
-                  <p>Only pre-approved addresses can ever receive funds.</p>
+              </Reveal>
+              <Reveal delay={0.74}>
+                <div className="scrolltag">
+                  <span><b>6</b> on-chain guardrails</span>
+                  <span><b>ZK</b> verified</span>
+                  <span><b>x402</b> native</span>
                 </div>
-                <div className="sat">
-                  <div className="sat__ico">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9FB6FF" strokeWidth="1.7"><rect x="3" y="11" width="18" height="9" rx="2" /><path d="M7 11V8a5 5 0 0 1 10 0v3" /><circle cx="12" cy="15.5" r="1.4" fill="#9FB6FF" stroke="none" /></svg>
-                  </div>
-                  <h4>Per-task limit</h4>
-                  <p>Each task can spend up to a hard cap — no single job overspends.</p>
-                </div>
-                <div className="sat">
-                  <div className="sat__ico">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C3A6FF" strokeWidth="1.7"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </div>
-                  <h4>Daily limit</h4>
-                  <p>A daily UTC ceiling, reset every calendar day at 00:00 — runaway loops hit a wall.</p>
-                </div>
-                <div className="sat">
-                  <div className="sat__ico">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9FF23" strokeWidth="1.7"><path d="M4 6h16M4 12h11M4 18h14" strokeLinecap="round" /><circle cx="19" cy="12" r="2" /></svg>
-                  </div>
-                  <h4>Auto-accounting</h4>
-                  <p>Spend is tagged to its task on-chain — reconcile with zero memos.</p>
-                </div>
-              </div>
+              </Reveal>
             </div>
-          </motion.div>
+            <LiveLedger />
+          </div>
+        </header>
+
+        {/* 01 rails */}
+        <section className="band" id="how">
+          <Reveal><div className="kick"><span className="no">01</span><span className="eyebrow">Two rails · one contract</span></div></Reveal>
+          <RevealLines tag="h2" className="title" lines={[<>Real dollars out. <em>Native value</em> in.</>]} />
+          <Reveal delay={0.1}><p className="lead2">The same bounded treasury secures any Stellar asset — your agent pays the world in USDC and is funded in native XLM.</p></Reveal>
+          <div className="rails">
+            <Reveal className="rail" delay={0.05}>
+              <div className="rk">USDC rail</div>
+              <h3>Real dollars out</h3>
+              <p>Every service the agent pays — inference, scraping, rendering — settles in USDC, gated by per-task and daily limits.</p>
+              <div className="meta"><span><b>per-task</b> ≤ 10 USDC</span><span><b>daily</b> ≤ 50 USDC</span><span><b>payee</b> whitelist or reputation</span></div>
+            </Reveal>
+            <Reveal className="rail" delay={0.14}>
+              <div className="rk">XLM rail</div>
+              <h3>Native value in</h3>
+              <p>Budgets are funded in native XLM via zero-cost muxed sub-addresses — attribution with no memos, no new accounts.</p>
+              <div className="meta"><span><b>deposit</b> → muxed M-address</span><span><b>fees</b> sub-cent, in XLM</span><span><b>attribution</b> by budget id</span></div>
+            </Reveal>
+          </div>
         </section>
 
-        {/* ───────── why stellar ───────── */}
-        <section className="section">
-          <motion.div className="sec-head" {...reveal()}>
-            <div className="eyebrow sec-eyebrow">Why Stellar</div>
-            <h2 className="sec-title">Primitives nothing else has <span className="spectral">this cheap.</span></h2>
-            <p className="sec-lead">Agent payment swarms need attribution, micro-fees, and real dollars. Stellar ships all three as native primitives.</p>
-          </motion.div>
-
-          <div className="feat-grid">
-            {WHY.map((w, i) => (
-              <motion.div className="glass feat" key={w.t} {...reveal(0.06 + i * 0.06)}>
-                <div className="feat__ico">{w.ico}</div>
-                <div className="feat__k">{w.k}</div>
-                <h3>{w.t}</h3>
-                <p>{w.p}</p>
-              </motion.div>
+        {/* 02 guardrails */}
+        <section className="band">
+          <Reveal><div className="kick"><span className="no">02</span><span className="eyebrow">How the guardrails work</span></div></Reveal>
+          <RevealLines tag="h2" className="title" lines={[<>Four checks the chain enforces — <em>not the model.</em></>]} />
+          <div className="checks">
+            {GUARDS.map((g, i) => (
+              <Reveal className="check" key={g.t} delay={i * 0.05}>
+                <span className="n">{g.n}</span>
+                <h4>{g.t}</h4>
+                <p>{g.p}</p>
+              </Reveal>
             ))}
           </div>
         </section>
 
-        {/* ───────── rogue rejection band ───────── */}
-        <motion.section className="rogue" {...reveal()}>
-          <div className="rogue__grid">
-            <div>
-              <div className="eyebrow rogue__eye">The proof · prompt-injection</div>
-              <h2 className="rogue__title">The model got jailbroken.<br /><span className="x">The contract didn&apos;t care.</span></h2>
-              <p className="rogue__sub">A poisoned prompt tells the agent to drain everything to an attacker wallet. It signs the transaction. Stellar reverts it on-chain before a single cent leaves the treasury.</p>
-              <div style={{ marginTop: 20 }}><span className="badge badge--rej">✕ PayeeNotWhitelisted · funds never moved</span></div>
+        {/* 03 confidential ZK */}
+        <section className="band">
+          <Reveal><div className="kick"><span className="no">03</span><span className="eyebrow">Confidential mode · zero-knowledge</span></div></Reveal>
+          <div className="feat">
+            <div className="feat__txt">
+              <Reveal><span className="eyebrow accent">New since hackathon</span></Reveal>
+              <RevealLines tag="h2" delay={0.05} lines={[<>Prove every payment was in policy — <em>reveal nothing.</em></>]} />
+              <Reveal delay={0.12}><p>A Groth16/BN254 circuit proves the payment sits inside its per-task and daily bounds and pays a whitelisted payee — without disclosing the amount or the recipient. The treasury verifies the proof on-chain and emits an attestation.</p></Reveal>
+              <Reveal delay={0.2}>
+                <div className="pts">
+                  <div>Poseidon-Merkle whitelist + commitment binding (amount, payee, salt)</div>
+                  <div>On-chain BN254 verifier — policy-bound, replay-guarded</div>
+                  <div>Emits <span className="mono">attested</span> — auditable, not disclosed</div>
+                </div>
+              </Reveal>
             </div>
-
-            <div className="rogue__panel">
-              <div className="rogue__row"><span className="k">attempt</span><span className="v">{ROGUE.name}</span></div>
-              <div className="rogue__row"><span className="k">to</span><span className="v mono">{shortAddr(ATTACKER)}</span></div>
-              <div className="rogue__row"><span className="k">amount</span><span className="v mono">{fmtUSDC(ROGUE.amount)} USDC</span></div>
-              <div className="rogue__row"><span className="k">result</span><span className="v" style={{ color: "#FF6E8A" }}>reverted</span></div>
-              <div className="rogue__zero">
-                <div className="big mono">0 USDC</div>
-                <div className="cap">moved</div>
+            <Reveal className="panel" delay={0.1}>
+              <div className="plbl">compliance proof · public inputs</div>
+              <div style={{ marginTop: 16 }}>
+                <div className="zkrow"><span className="k">amount</span><span className="hidden">•••••• hidden</span></div>
+                <div className="zkrow"><span className="k">payee</span><span className="hidden">•••••• hidden</span></div>
+                <div className="zkrow"><span className="k">within per-task bound</span><span className="ok">✓ proven</span></div>
+                <div className="zkrow"><span className="k">within daily bound</span><span className="ok">✓ proven</span></div>
+                <div className="zkrow"><span className="k">payee ∈ whitelist</span><span className="ok">✓ proven</span></div>
               </div>
+              <div className="attest">◆ attested · verified on-chain · replay-guarded</div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* 04 trust & outcomes */}
+        <section className="band">
+          <Reveal><div className="kick"><span className="no">04</span><span className="eyebrow">Trust &amp; outcomes</span></div></Reveal>
+          <div className="feat rev">
+            <div className="feat__txt">
+              <Reveal><span className="eyebrow accent">New since hackathon</span></Reveal>
+              <RevealLines tag="h2" delay={0.05} lines={[<>Pay strangers safely. Release on <em>outcomes.</em></>]} />
+              <Reveal delay={0.12}><p>Beyond a static whitelist, a payee that earned reputation (ERC-8004) clears the gate. And funds can lock in escrow — released to the payee on success, refunded to the treasury if the deadline passes.</p></Reveal>
+              <Reveal delay={0.2}>
+                <div className="pts">
+                  <div>Reputation-gated payees — whitelist OR earned trust ≥ threshold</div>
+                  <div>Outcome-bound escrow — lock → release or refund</div>
+                </div>
+              </Reveal>
             </div>
+            <Reveal className="panel" delay={0.1}>
+              <div className="plbl">escrow · outcome flow</div>
+              <div className="flow" style={{ marginTop: 16 }}>
+                <div className="fstep"><span className="fn">1</span> Lock 4.00 USDC for task #204 <span className="fa">locked</span></div>
+                <div className="fstep"><span className="fn">2</span> Payee delivers · approved <span className="fa">release →</span></div>
+                <div className="fstep refund"><span className="fn">3</span> Deadline passed · unmet <span className="fa">refund ↩</span></div>
+              </div>
+            </Reveal>
           </div>
-        </motion.section>
+        </section>
 
-        {/* ───────── final CTA ───────── */}
-        <motion.section className="glass glass--violet cta-band" {...reveal()}>
-          <PrismMark variant="mark" size={44} />
-          <h2>It&apos;s already live.</h2>
-          <p>Deployed on Stellar testnet, paying real USDC, rejecting real exploits. See it move money it&apos;s allowed to — and refuse the money it isn&apos;t.</p>
-          <div className="row">
-            <button className="btn btn--primary" onClick={onLaunch}>Launch live demo →</button>
-            <a className="btn" href={contractUrl(TREASURY_ID)} target="_blank" rel="noreferrer">Treasury contract</a>
-            <a className="btn" href={contractUrl(USDC_SAC)} target="_blank" rel="noreferrer">USDC</a>
+        {/* 05 x402 */}
+        <section className="band">
+          <Reveal><div className="kick"><span className="no">05</span><span className="eyebrow">Agentic payments · x402</span></div></Reveal>
+          <div className="feat">
+            <div className="feat__txt">
+              <Reveal><span className="eyebrow accent">New since hackathon</span></Reveal>
+              <RevealLines tag="h2" delay={0.05} lines={[<>When a service says <em>402,</em> the bound still holds.</>]} />
+              <Reveal delay={0.12}><p>An agent normally pays whatever a <span className="mono">402 Payment Required</span> server asks. Prism gates that request against the treasury policy first — an over-limit or wrong-payee charge never reaches settlement.</p></Reveal>
+              <Reveal delay={0.2}>
+                <div className="pts">
+                  <div>Gate mirrors the on-chain policy before any signature</div>
+                  <div>Only in-policy requests settle through the bounded treasury</div>
+                </div>
+              </Reveal>
+            </div>
+            <Reveal className="panel" delay={0.1}>
+              <div className="plbl">x402 · gated settlement</div>
+              <div className="x402" style={{ marginTop: 14 }}>
+                <div className="l"><span className="c">server</span><span className="m402">402 Payment Required · 6.00 USDC</span></div>
+                <div className="l"><span className="c">gate</span><span className="gate">within per-task ≤ 10 ✓ · payee whitelisted ✓</span></div>
+                <div className="l"><span className="c">in-policy</span><span className="gate">→ settled 6.00 USDC · tx 9dc3…</span></div>
+                <div className="l"><span className="c">14.00 ask</span><span className="m402">→ refused · exceeds limit · never signed</span></div>
+              </div>
+            </Reveal>
           </div>
-        </motion.section>
+        </section>
 
-        {/* ───────── footer ───────── */}
-        <footer className="footer">
-          <div className="brand">
-            <PrismMark variant="mark" size={24} />
-            Prism
-            <span className="dim" style={{ fontFamily: "var(--sans)", fontWeight: 400, fontSize: 13, marginLeft: 6 }}>
-              Build On Stellar · IBW 2026
-            </span>
+        {/* 06 rogue proof */}
+        <section className="band rogue">
+          <div className="proofwide">
+            <div>
+              <Reveal><div className="kick"><span className="no">06</span><span className="eyebrow">The proof · prompt-injection</span></div></Reveal>
+              <RevealLines tag="h2" className="title" lines={["The model got jailbroken.", <><em>The contract didn't care.</em></>]} />
+              <Reveal delay={0.12}><p className="lead2">A poisoned prompt tells the agent to drain everything to an attacker wallet. It signs the transaction. Stellar reverts it on-chain before a single cent leaves the treasury.</p></Reveal>
+              <Reveal delay={0.2}><span className="reason">PayeeNotWhitelisted · funds never moved</span></Reveal>
+            </div>
+            <Reveal delay={0.1}>
+              <div className="big">0<small>USDC moved</small></div>
+            </Reveal>
           </div>
-          <div className="dim mono" style={{ fontSize: 12.5 }}>
-            Bekir Erdem · Seyit Ali Değirmen ·{" "}
-            <a className="glow-link" href="https://github.com/Bekirerdem" target="_blank" rel="noreferrer">GitHub ↗</a>
-          </div>
+        </section>
+
+        {/* final */}
+        <section className="final">
+          <Reveal><span className="eyebrow">Live on Stellar testnet</span></Reveal>
+          <RevealLines tag="h2" delay={0.05} lines={[<>It's already <em>live.</em></>]} />
+          <Reveal delay={0.15}><p>Deployed on testnet — paying real USDC, proving compliance in zero-knowledge, rejecting real exploits.</p></Reveal>
+          <Reveal delay={0.22}>
+            <div className="cta">
+              <button className="btn btn--p" onClick={onLaunch}>Launch live demo →</button>
+              <a className="btn" href={contractUrl(TREASURY_ID)} target="_blank" rel="noreferrer">Treasury contract</a>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* footer */}
+        <footer className="foot">
+          <div className="b"><span className="glyph" /> Prism</div>
+          <div className="op"><i /> System operational · Build On Stellar · IBW 2026</div>
+          <div className="op" style={{ color: "var(--lx-dim)" }}>Bekir Erdem · Seyit Ali Değirmen</div>
         </footer>
       </main>
     </div>
   );
 }
 
-const WHY = [
-  {
-    k: "Attribution",
-    t: "Muxed accounts",
-    p: "One account, infinite zero-cost sub-addresses — the attribution layer for payment swarms. No equivalent is this cheap elsewhere.",
-    ico: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C3A6FF" strokeWidth="1.7">
-        <circle cx="12" cy="6" r="2.4" />
-        <circle cx="6" cy="18" r="2.4" />
-        <circle cx="18" cy="18" r="2.4" />
-        <path d="M12 8.4 V13 M12 13 L6.6 16 M12 13 L17.4 16" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    k: "Economics",
-    t: "Sub-cent fees",
-    p: "Deterministic, fraction-of-a-cent fees make agent micro-payments actually economical. Gas would eat them alive.",
-    ico: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" strokeWidth="1.7">
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="M14.5 9.2c-.6-.9-1.6-1.3-2.7-1.3-1.5 0-2.6.8-2.6 2 0 2.7 5.4 1.4 5.4 4.1 0 1.3-1.2 2.1-2.8 2.1-1.2 0-2.3-.5-2.9-1.4" strokeLinecap="round" />
-        <path d="M12 6v1.6M12 16.4V18" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    k: "Real money",
-    t: "Native USDC",
-    p: "Real dollars, path-payment FX, and fiat off-ramps in 170+ countries connect the agent to the real world.",
-    ico: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9FF23" strokeWidth="1.7">
-        <rect x="3" y="6" width="18" height="12" rx="2.5" />
-        <circle cx="12" cy="12" r="2.6" />
-        <path d="M6 9.5h.01M18 14.5h.01" strokeLinecap="round" />
-      </svg>
-    ),
-  },
+const GUARDS = [
+  { n: "01", t: "Payee whitelist", p: "Only pre-approved addresses — or payees that earned on-chain reputation — can ever receive funds." },
+  { n: "02", t: "Per-task limit", p: "Each task can spend up to a hard cap — no single job overspends." },
+  { n: "03", t: "Daily limit", p: "A daily UTC ceiling — runaway loops hit a wall, every calendar day." },
+  { n: "04", t: "Auto-accounting", p: "Spend is tagged to its task on-chain — reconcile with zero memos." },
 ];
