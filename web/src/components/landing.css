@@ -207,4 +207,4 @@
   .lx .proofwide .big{ text-align:left; }
   .lx .nav .links a, .lx .nav .links .navlink{ display:none; }
 }
-@media(prefers-reduced-motion:reduce){ .cine__beam{ animation:none } }
+@media(prefers-reduced-motion:reduce){ .cine__glow, .cine__rays{ animation:none } }
