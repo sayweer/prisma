@@ -24,32 +24,30 @@
   --lx-mono:  'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* ===================== cinematic background (global, fixed) ===================== */
+/* ===================== cinematic background (global, fixed) =====================
+   ONE accent colour, never a multi-hue mix. A slow breathing light + drifting
+   volumetric shafts give the static page a constant cinematic flow. */
 .cine{ position:fixed; inset:0; z-index:-3; pointer-events:none; overflow:hidden;
   background:
-    radial-gradient(ellipse 78% 60% at 82% -10%, color-mix(in oklab,var(--lx-accent) 30%,transparent), transparent 55%),
-    radial-gradient(ellipse 70% 65% at 2% 110%, rgba(125,95,245,0.20), transparent 56%),
-    linear-gradient(180deg, #0c0c14, #08080c 48%, #050507); }
-.cine__grid{ position:absolute; inset:-2px; opacity:.9;
-  background-image:linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-                   linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-  background-size:60px 60px;
-  -webkit-mask:radial-gradient(ellipse 90% 70% at 50% 22%, #000 16%, transparent 80%);
-          mask:radial-gradient(ellipse 90% 70% at 50% 22%, #000 16%, transparent 80%); }
-.cine__beam{ position:absolute; top:-30%; right:-4%; width:62vw; height:120vh;
-  background:conic-gradient(from 196deg at 62% 28%, transparent 0deg,
-    color-mix(in oklab,var(--lx-accent) 46%,transparent) 22deg,
-    rgba(130,100,255,0.30) 44deg, rgba(60,160,255,0.22) 64deg, transparent 92deg);
-  filter:blur(58px); mix-blend-mode:screen; opacity:.9; animation:lx-beam 22s ease-in-out infinite; }
-.cine__beam::after{ content:""; position:absolute; inset:0;
-  background:repeating-linear-gradient(108deg, transparent 0 38px,
-    color-mix(in oklab,var(--lx-accent) 10%,transparent) 38px 39px, transparent 39px 80px);
-  mix-blend-mode:screen; opacity:.5; }
+    radial-gradient(ellipse 110% 60% at 50% -18%, color-mix(in oklab,var(--lx-accent) 9%,transparent), transparent 60%),
+    linear-gradient(180deg, #0a0a10, #08080c 52%, #060609); }
+/* breathing light pool — single source, slow scale+opacity */
+.cine__glow{ position:absolute; top:-32%; left:50%; width:1100px; max-width:130vw; height:78vh; transform:translateX(-50%);
+  background:radial-gradient(ellipse at center, color-mix(in oklab,var(--lx-accent) 16%,transparent), transparent 60%);
+  filter:blur(64px); animation:lx-breathe 14s ease-in-out infinite; }
+/* volumetric light shafts — thin accent rays slowly drifting (the cinematic flow) */
+.cine__rays{ position:absolute; inset:-40% -12%; opacity:.5;
+  background:repeating-linear-gradient(102deg, transparent 0 96px,
+    color-mix(in oklab,var(--lx-accent) 6%,transparent) 96px 98px, transparent 98px 210px);
+  -webkit-mask:radial-gradient(ellipse 78% 62% at 50% 26%, #000 4%, transparent 72%);
+          mask:radial-gradient(ellipse 78% 62% at 50% 26%, #000 4%, transparent 72%);
+  animation:lx-drift 26s linear infinite; }
 .cine__vig{ position:absolute; inset:0;
-  background:radial-gradient(ellipse 130% 85% at 50% -4%, transparent 40%, rgba(4,4,7,0.45) 84%, #040407 100%); }
-.cine__grain{ position:fixed; inset:0; z-index:-2; pointer-events:none; opacity:.045; mix-blend-mode:overlay;
+  background:radial-gradient(ellipse 135% 92% at 50% -2%, transparent 46%, rgba(4,4,7,0.5) 86%, #040407 100%); }
+.cine__grain{ position:fixed; inset:0; z-index:-2; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-@keyframes lx-beam{ 0%,100%{ transform:translate(0,0) rotate(0deg); opacity:.78 } 50%{ transform:translate(-5vw,4vh) rotate(7deg); opacity:1 } }
+@keyframes lx-breathe{ 0%,100%{ opacity:.55; transform:translateX(-50%) scale(1) } 50%{ opacity:.9; transform:translateX(-50%) scale(1.08) } }
+@keyframes lx-drift{ 0%{ transform:translateX(-7%) } 100%{ transform:translateX(7%) } }
 
 /* ===================== landing root ===================== */
 .lx{ color:var(--lx-text); font-family:var(--lx-sans); font-size:16px; line-height:1.6;
@@ -63,20 +61,26 @@
 
 /* reveal masks (framer animates the inner span) */
 .lx .rmask{ display:block; overflow:hidden; padding-bottom:.04em; }
-.lx .rword{ display:inline-block; white-space:pre; }
+.lx .rword{ display:inline-block; white-space:pre-wrap; }
 
 /* ---------- floating nav ---------- */
 .lx .nav{ position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:40;
-  width:min(1500px,93vw); display:flex; align-items:center; justify-content:space-between;
+  width:min(1500px,93vw); display:flex; align-items:center; gap:28px;
   padding:11px 12px 11px 20px; border:1px solid var(--lx-line2); border-radius:100px;
   background:rgba(10,10,14,0.55); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
+.lx .nav .links{ margin-left:auto; }
 .lx .nav .brand{ display:flex; align-items:center; gap:11px; font-family:var(--lx-serif); font-weight:600; font-size:20px; }
 .lx .nav .glyph{ width:12px; height:12px; background:var(--lx-accent); transform:rotate(45deg); box-shadow:0 0 16px var(--lx-accent); }
 .lx .nav .links{ display:flex; align-items:center; gap:26px; font-size:13.5px; color:var(--lx-muted); }
 .lx .nav .links a:hover{ color:var(--lx-text); }
+.lx .nav .links .navlink{ background:none; border:none; padding:0; margin:0; font:inherit; font-size:13.5px; color:var(--lx-muted); cursor:pointer; transition:color .2s; }
+.lx .nav .links .navlink:hover{ color:var(--lx-text); }
 .lx .nav .live{ display:inline-flex; align-items:center; gap:7px; }
 .lx .nav .live i{ width:6px; height:6px; border-radius:50%; background:var(--lx-accent); box-shadow:0 0 8px var(--lx-accent); }
-.lx .nav .navcta{ padding:9px 18px; border-radius:100px; background:var(--lx-accent); color:var(--lx-ink); font-weight:600; font-size:13.5px; }
+.lx .nav .navcta{ padding:9px 18px; border-radius:100px; background:var(--lx-accent); color:var(--lx-ink);
+  font-weight:600; font-size:13.5px; border:none; cursor:pointer; font-family:inherit;
+  transition:transform .2s ease, filter .2s ease, box-shadow .2s ease; }
+.lx .nav .navcta:hover{ transform:translateY(-1px); filter:brightness(1.08); box-shadow:0 10px 26px -10px var(--lx-accent); }
 
 /* ---------- hero ---------- */
 .lx .hero{ min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:140px 0 70px; }
@@ -173,8 +177,10 @@
 
 /* rogue proof */
 .lx .rogue{ background:var(--lx-bg2); }
-.lx .proofwide{ display:grid; grid-template-columns:1fr auto; gap:50px; align-items:center; }
-.lx .proofwide .big{ font-family:var(--lx-serif); font-weight:500; font-size:clamp(96px,15vw,200px); line-height:.84; letter-spacing:-.04em; color:var(--lx-danger); text-align:right; }
+.lx .proofwide{ display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:clamp(36px,6vw,88px); }
+.lx .proofwide > div:first-child{ max-width:46ch; }
+.lx .proofwide .title{ max-width:none; }
+.lx .proofwide .big{ font-family:var(--lx-serif); font-weight:500; font-size:clamp(96px,13vw,190px); line-height:.84; letter-spacing:-.04em; color:var(--lx-danger); text-align:center; flex:none; }
 .lx .proofwide .big small{ display:block; font-family:var(--lx-mono); font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--lx-dim); margin-top:20px; }
 .lx .reason{ margin-top:24px; font-family:var(--lx-mono); font-size:12.5px; color:var(--lx-danger); display:inline-flex; gap:9px; align-items:center; }
 .lx .reason::before{ content:"✕"; }
@@ -199,6 +205,6 @@
   .lx .check{ grid-template-columns:34px 1fr; }
   .lx .check p{ grid-column:2; }
   .lx .proofwide .big{ text-align:left; }
-  .lx .nav .links a{ display:none; }
+  .lx .nav .links a, .lx .nav .links .navlink{ display:none; }
 }
 @media(prefers-reduced-motion:reduce){ .cine__beam{ animation:none } }
