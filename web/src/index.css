@@ -8,33 +8,36 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root{
-  /* SPECTRAL tokens */
-  --base:        #06060A;
+  /* PALETTE — black · vibe-purple (#AC8BE0) · white (the chosen brand palette).
+     Base is a violet-tinted near-black (refs use violet-black, never flat #000). */
+  --base:        #08060F;
   --surface:     rgba(255,255,255,0.05);
-  --raised:      rgba(124,58,237,0.07);
-  --text:        #F5F4FA;
-  --muted:       #A0A0B8;
-  --dim:         #6E6E86;
+  --raised:      rgba(124,58,237,0.08);
+  --text:        #F4F1FA;
+  --muted:       #A39FB8;
+  --dim:         #6E6A86;
   --border:      rgba(255,255,255,0.10);
   --inset:       rgba(255,255,255,0.12);
 
-  /* prism accent ramp */
-  --violet:  #7C3AED;
-  --indigo:  #4F46E5;
-  --cyan:    #22D3EE;
-  --lime:    #C9FF23;
-  --green:   #00FF43;
-  --crimson: #FF2D55;
-  --magenta: #F0398B;
-  --amber:   #FCA019;
+  /* violet accent ramp (brand) */
+  --violet:   #7C3AED;
+  --indigo:   #5B4BE8;
+  --lavender: #AC8BE0;   /* the brand "vibe purple" */
+  --lilac:    #C9B0F2;
+  --cyan:     #6FB8F5;   /* cool prism edge, pulled toward blue (was electric cyan) */
+  --lime:     #C9FF23;
+  --green:    #00FF43;
+  --crimson:  #FF2D55;
+  --magenta:  #C56BD8;   /* warm prism edge, pulled toward violet (was hot pink) */
+  --amber:    #FCA019;
 
-  /* semantic aliases (kept for any legacy refs) */
-  --accent:  var(--cyan);
+  /* semantic aliases */
+  --accent:  var(--lavender);
   --ok:      var(--green);
   --danger:  var(--crimson);
 
-  --spectrum: linear-gradient(100deg, var(--violet) 0%, var(--indigo) 34%, var(--cyan) 64%, var(--lime) 100%);
-  --spectrum-soft: linear-gradient(100deg, #9A6BFF, #6E66F0, #4FE3FA, #D6FF5C);
+  --spectrum: linear-gradient(100deg, var(--violet) 0%, var(--indigo) 40%, var(--lavender) 74%, var(--lilac) 100%);
+  --spectrum-soft: linear-gradient(100deg, #C9A8FF 0%, #9A7BF0 42%, #AC8BE0 72%, #BFD4FF 100%);
 
   --display: 'Clash Display', 'Space Grotesk', system-ui, sans-serif;
   --grotesk: 'Space Grotesk', system-ui, sans-serif;
@@ -57,7 +60,7 @@ html,body,#root{ height:100%; }
 body{ margin:0; background:var(--base); overflow-x:hidden; }
 #root{ width:100%; min-height:100svh; isolation:isolate; }
 ::selection{ background: rgba(124,58,237,0.4); color:#fff; }
-a{ color:var(--cyan); text-decoration:none; }
+a{ color:var(--lavender); text-decoration:none; }
 button{ font-family:inherit; }
 
 /* ===================== BACKGROUND (CSS-generated spectral aurora) ===================== */
@@ -95,12 +98,7 @@ button{ font-family:inherit; }
   background:var(--spectrum-soft); -webkit-background-clip:text; background-clip:text;
   -webkit-text-fill-color:transparent; color:transparent;
 }
-.spectral-focal{
-  position:relative; display:inline-block;
-  background:linear-gradient(96deg, #B79BFF 0%, #7C84FF 30%, #4FE3FA 60%, #D6FF5C 100%);
-  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
-  filter:drop-shadow(0 0 26px rgba(124,58,237,0.45)) drop-shadow(0 0 50px rgba(34,211,238,0.25));
-}
+.spectral-focal{ color:var(--lavender); }
 
 .pill{ display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:999px;
   font-size:12.5px; font-weight:500; border:1px solid var(--border);
@@ -131,9 +129,9 @@ button{ font-family:inherit; }
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
 .btn:hover{ transform:translateY(-2px); background:rgba(255,255,255,0.08); }
 .btn:active{ transform:translateY(0); }
-.btn--primary{ border-color:transparent; color:#0A0712; background:var(--spectrum); background-size:160% 100%; background-position:20% 0;
-  box-shadow:0 14px 42px -16px rgba(124,58,237,0.7), 0 0 0 1px rgba(255,255,255,0.06) inset; }
-.btn--primary:hover{ background-position:80% 0; box-shadow:0 20px 56px -16px rgba(34,211,238,0.7); }
+.btn--primary{ border-color:transparent; color:#fff; background:var(--violet);
+  box-shadow:0 14px 38px -16px rgba(124,58,237,0.75); }
+.btn--primary:hover{ background:#8B4DF0; box-shadow:0 18px 48px -16px rgba(124,58,237,0.9); }
 .btn--danger{ border-color:rgba(255,45,85,0.5); color:#FF7A95; background:rgba(255,45,85,0.12); }
 .btn--danger:hover{ background:rgba(255,45,85,0.2); }
 .btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
@@ -148,7 +146,7 @@ button{ font-family:inherit; }
 @keyframes rejpulse{0%,100%{box-shadow:0 0 18px -4px rgba(255,45,85,0.5)}50%{box-shadow:0 0 28px -2px rgba(255,45,85,0.8)}}
 
 .sec-head{ max-width:62ch; }
-.sec-eyebrow{ color:var(--cyan); }
+.sec-eyebrow{ color:var(--lavender); }
 .sec-title{ font-family:var(--display); font-weight:600; font-size:clamp(28px,4vw,46px); line-height:1.02; letter-spacing:-.02em; margin:14px 0 0; }
 .sec-lead{ color:var(--muted); font-size:17px; margin:14px 0 0; max-width:58ch; }
 
@@ -253,7 +251,7 @@ button{ font-family:inherit; }
   background:rgba(124,58,237,0.10); border:1px solid rgba(124,58,237,0.30); box-shadow:0 0 22px -8px rgba(124,58,237,0.6); }
 .feat h3{ font-family:var(--grotesk); font-weight:600; font-size:18px; margin:0 0 8px; }
 .feat p{ color:var(--muted); font-size:14px; margin:0; line-height:1.5; }
-.feat__k{ font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); }
+.feat__k{ font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--lavender); }
 
 /* ===================== FINAL CTA ===================== */
 .cta-band{ margin-top:84px; padding:clamp(40px,6vw,72px); border-radius:var(--r-lg); text-align:center; }
@@ -392,5 +390,22 @@ button{ font-family:inherit; }
 .bg__aurora { filter: blur(64px); }
 .bg__fan { filter: blur(30px); }
 
-/* hero prism removed (perf) → single column so there's no empty half */
-.hero { grid-template-columns: 1fr; }
+/* hero: floating glass cards showing Prism's live data — flat fills, no gradients */
+.hero__cards{ position:relative; display:flex; flex-direction:column; gap:16px; width:100%; max-width:392px; margin-left:auto; }
+.hcard{ background:rgba(22,18,34,0.62); border:1px solid var(--border); border-radius:16px;
+  backdrop-filter:blur(16px) saturate(1.1); -webkit-backdrop-filter:blur(16px) saturate(1.1);
+  padding:18px 20px; box-shadow:0 22px 52px -26px rgba(0,0,0,0.75); }
+.hcard--ok{ margin-right:42px; }
+.hcard--mid{ margin-left:34px; }
+.hcard--rej{ margin-right:12px; border-color:rgba(255,45,85,0.28); background:rgba(30,16,22,0.62); }
+.hcard__top{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+.hcard__dot{ width:7px; height:7px; border-radius:50%; flex:none; }
+.hcard__dot--ok{ background:var(--green); box-shadow:0 0 8px rgba(0,255,67,0.6); }
+.hcard__dot--rej{ background:var(--crimson); box-shadow:0 0 8px rgba(255,45,85,0.6); }
+.hcard__main{ font-family:var(--grotesk); font-weight:600; font-size:18px; margin-top:11px; color:var(--text); }
+.hcard__main b{ color:var(--lavender); font-weight:700; }
+.hcard--rej .hcard__main b{ color:#FF6E8A; }
+.hcard__meta{ font-family:var(--mono); font-size:11.5px; color:var(--dim); margin-top:7px; }
+.hcard__bar{ height:7px; border-radius:99px; background:rgba(255,255,255,0.08); margin-top:13px; overflow:hidden; }
+.hcard__bar span{ display:block; height:100%; border-radius:99px; background:var(--lavender); }
+@media(max-width:920px){ .hero__cards{ max-width:100%; margin:20px 0 0; } .hcard--ok,.hcard--mid,.hcard--rej{ margin-left:0; margin-right:0; } }
