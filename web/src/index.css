@@ -8,39 +8,40 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root{
-  /* PALETTE — black · vibe-purple (#AC8BE0) · white (the chosen brand palette).
-     Base is a violet-tinted near-black (refs use violet-black, never flat #000). */
-  --base:        #08060F;
-  --surface:     rgba(255,255,255,0.05);
-  --raised:      rgba(124,58,237,0.08);
-  --text:        #F4F1FA;
-  --muted:       #A39FB8;
-  --dim:         #6E6A86;
-  --border:      rgba(255,255,255,0.10);
+  /* PALETTE — bridged to the landing's --lx-* tokens so the Dashboard shares the
+     cinematic look and re-skins in one place when the final palette is chosen.
+     Accent family collapses to a single accent; ok/danger/warn stay semantic. */
+  --base:        var(--lx-bg, #08080b);
+  --surface:     rgba(255,255,255,0.04);
+  --raised:      color-mix(in oklab, var(--lx-accent, #00E0A4) 8%, transparent);
+  --text:        var(--lx-text, #f3f1ec);
+  --muted:       var(--lx-muted, #94939c);
+  --dim:         var(--lx-dim, #56555f);
+  --border:      var(--lx-line, rgba(255,255,255,0.08));
   --inset:       rgba(255,255,255,0.12);
 
-  /* violet accent ramp (brand) */
-  --violet:   #7C3AED;
-  --indigo:   #5B4BE8;
-  --lavender: #AC8BE0;   /* the brand "vibe purple" */
-  --lilac:    #C9B0F2;
-  --cyan:     #6FB8F5;   /* cool prism edge, pulled toward blue (was electric cyan) */
+  /* accent ramp → one accent family (jade placeholder via --lx-accent) */
+  --violet:   var(--lx-accent, #00E0A4);
+  --indigo:   color-mix(in oklab, var(--lx-accent, #00E0A4) 78%, #3a3f6b);
+  --lavender: var(--lx-accent, #00E0A4);
+  --lilac:    color-mix(in oklab, var(--lx-accent, #00E0A4) 55%, white);
+  --cyan:     color-mix(in oklab, var(--lx-accent, #00E0A4) 82%, #6fb8f5);
   --lime:     #C9FF23;
   --green:    #00FF43;
-  --crimson:  #FF2D55;
-  --magenta:  #C56BD8;   /* warm prism edge, pulled toward violet (was hot pink) */
+  --crimson:  var(--lx-danger, #FF4D5E);
+  --magenta:  var(--lx-accent, #00E0A4);
   --amber:    #FCA019;
 
   /* semantic aliases */
-  --accent:  var(--lavender);
+  --accent:  var(--lx-accent, #00E0A4);
   --ok:      var(--green);
   --danger:  var(--crimson);
 
-  --spectrum: linear-gradient(100deg, var(--violet) 0%, var(--indigo) 40%, var(--lavender) 74%, var(--lilac) 100%);
-  --spectrum-soft: linear-gradient(100deg, #C9A8FF 0%, #9A7BF0 42%, #AC8BE0 72%, #BFD4FF 100%);
+  --spectrum: linear-gradient(100deg, var(--lx-accent, #00E0A4) 0%, color-mix(in oklab, var(--lx-accent, #00E0A4) 65%, #3a3f6b) 60%, var(--lx-accent, #00E0A4) 100%);
+  --spectrum-soft: linear-gradient(100deg, color-mix(in oklab, var(--lx-accent, #00E0A4) 78%, white) 0%, var(--lx-accent, #00E0A4) 55%, color-mix(in oklab, var(--lx-accent, #00E0A4) 70%, #6fb8f5) 100%);
 
-  --display: 'Clash Display', 'Space Grotesk', system-ui, sans-serif;
-  --grotesk: 'Space Grotesk', system-ui, sans-serif;
+  --display: 'Fraunces', Georgia, serif;
+  --grotesk: 'Inter', system-ui, sans-serif;
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
 
